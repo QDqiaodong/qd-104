@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, computed, watch, nextTick, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useCheckinStore } from '@/stores/checkin'
 import type { Checkin, TravelMethod } from '@/types'
+
+const route = useRoute()
 
 const checkinStore = useCheckinStore()
 
@@ -58,6 +61,52 @@ const yearGroups = computed(() => {
   }))
 })
 
+async function locateToCheckin() {
+  const checkinId = route.query.id
+  const targetDate = route.query.date as string
+
+  await nextTick()
+
+  if (checkinId) {
+    const id = Number(checkinId)
+    const index = sortedCheckins.value.findIndex(c => c.id === id)
+    if (index !== -1) {
+      if (viewMode.value === 'scroll') {
+        scrollToIndex(index)
+        toggleZoom(index)
+      } else {
+        const element = document.getElementById(`checkin-${id}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          element.classList.add('ring-4', 'ring-primary', 'ring-opacity-50')
+          setTimeout(() => {
+            element.classList.remove('ring-4', 'ring-primary', 'ring-opacity-50')
+          }, 3000)
+        }
+      }
+      return
+    }
+  }
+
+  if (targetDate) {
+    const index = sortedCheckins.value.findIndex(c => {
+      const checkinDate = new Date(c.travelTime).toISOString().split('T')[0]
+      return checkinDate === targetDate
+    })
+    if (index !== -1) {
+      if (viewMode.value === 'scroll') {
+        scrollToIndex(index)
+      } else {
+        const checkin = sortedCheckins.value[index]
+        const element = document.getElementById(`checkin-${checkin.id}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }
+    }
+  }
+}
+
 onMounted(async () => {
   try {
     await Promise.all([
@@ -68,9 +117,21 @@ onMounted(async () => {
     loading.value = false
     nextTick(() => {
       if (viewMode.value === 'scroll' && scrollContainer.value) {
-        scrollToEnd()
+        if (route.query.id || route.query.date) {
+          locateToCheckin()
+        } else {
+          scrollToEnd()
+        }
+      } else if (route.query.id || route.query.date) {
+        locateToCheckin()
       }
     })
+  }
+})
+
+watch(() => [route.query.id, route.query.date], () => {
+  if (!loading.value) {
+    locateToCheckin()
   }
 })
 
@@ -475,7 +536,8 @@ function closeZoom() {
           v-else
           v-for="(checkin, index) in checkinStore.checkins"
           :key="checkin.id"
-          class="card card-hover animate-fade-in"
+          :id="`checkin-${checkin.id}`"
+          class="card card-hover animate-fade-in transition-all duration-300"
           :class="`stagger-${(index % 5) + 1}`"
         >
           <div class="flex items-start space-x-4">

@@ -6,6 +6,7 @@ import com.travel.dto.*;
 import com.travel.entity.*;
 import com.travel.repository.*;
 import com.travel.service.JournalService;
+import com.travel.util.ImageListSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -13,7 +14,6 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -73,7 +73,7 @@ public class JournalServiceImpl implements JournalService {
         Journal journal = new Journal();
         journal.setTitle(request.getTitle());
         journal.setContent(request.getContent());
-        journal.setImages(String.join(",", request.getImages()));
+        journal.setImages(ImageListSerializer.serialize(request.getImages()));
         journal.setCityId(request.getCityId());
         journal.setAuthorId(authorId);
         journal.setCreateTime(LocalDateTime.now());
@@ -163,9 +163,7 @@ public class JournalServiceImpl implements JournalService {
         City city = cityRepository.selectById(journal.getCityId());
         User author = userRepository.selectById(journal.getAuthorId());
 
-        List<String> images = journal.getImages() != null
-                ? Arrays.asList(journal.getImages().split(","))
-                : new ArrayList<>();
+        List<String> images = ImageListSerializer.deserialize(journal.getImages());
 
         return new JournalResponse(
                 journal.getId(),

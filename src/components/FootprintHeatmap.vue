@@ -143,7 +143,10 @@ function handleActivityClick(activity: DailyActivity) {
     router.push(`/journal/${activity.id}`)
     showDetailModal.value = false
   } else if (activity.type === 'checkin') {
-    router.push('/checkin')
+    router.push({
+      path: '/checkin',
+      query: { id: String(activity.id) }
+    })
     showDetailModal.value = false
   }
 }

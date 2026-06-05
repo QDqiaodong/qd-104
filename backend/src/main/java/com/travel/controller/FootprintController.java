@@ -10,6 +10,7 @@ import com.travel.entity.Journal;
 import com.travel.repository.CheckinRepository;
 import com.travel.repository.CityRepository;
 import com.travel.repository.JournalRepository;
+import com.travel.util.ImageListSerializer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +20,6 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/footprint")
@@ -87,11 +87,9 @@ public class FootprintController {
             City city = cityRepository.selectById(journal.getCityId());
             String time = journal.getCreateTime().format(TIME_FORMATTER);
             String firstImage = null;
-            if (journal.getImages() != null && !journal.getImages().isEmpty()) {
-                String[] images = journal.getImages().split(",");
-                if (images.length > 0) {
-                    firstImage = images[0];
-                }
+            List<String> images = ImageListSerializer.deserialize(journal.getImages());
+            if (!images.isEmpty()) {
+                firstImage = images.get(0);
             }
             
             dateActivitiesMap.computeIfAbsent(date, k -> new ArrayList<>()).add(
@@ -161,11 +159,9 @@ public class FootprintController {
             City city = cityRepository.selectById(journal.getCityId());
             String time = journal.getCreateTime().format(TIME_FORMATTER);
             String firstImage = null;
-            if (journal.getImages() != null && !journal.getImages().isEmpty()) {
-                String[] images = journal.getImages().split(",");
-                if (images.length > 0) {
-                    firstImage = images[0];
-                }
+            List<String> images = ImageListSerializer.deserialize(journal.getImages());
+            if (!images.isEmpty()) {
+                firstImage = images.get(0);
             }
             
             activities.add(new FootprintHeatmapResponse.DailyActivity(
