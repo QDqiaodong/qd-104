@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { useCheckinStore } from '@/stores/checkin'
+import { useMemoryBlindbox } from '@/composables/useMemoryBlindbox'
+import MemoryBlindbox from '@/components/MemoryBlindBox.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -11,20 +13,54 @@ const userStore = useUserStore()
 const checkinStore = useCheckinStore()
 
 const loading = ref(true)
+const showBlindbox = ref(false)
+
+const {
+  currentMemory,
+  isRevealing,
+  hasMemories,
+  loadMemories,
+  drawRandomMemory
+} = useMemoryBlindbox()
 
 onMounted(async () => {
   try {
     await Promise.all([
       userStore.fetchProfile(),
-      checkinStore.fetchCities()
+      checkinStore.fetchCities(),
+      checkinStore.fetchCheckins()
     ])
   } finally {
     loading.value = false
   }
 })
 
+watch(() => checkinStore.checkins, (checkins) => {
+  if (checkins.length > 0) {
+    loadMemories(checkins.map(c => ({
+      id: c.id,
+      cityName: c.cityName,
+      location: c.location,
+      travelTime: c.travelTime,
+      travelMethod: c.travelMethod
+    })))
+  }
+}, { immediate: true })
+
 function getCityName(cityId: number) {
   return checkinStore.cities.find(c => c.id === cityId)?.name || '未知'
+}
+
+function openBlindbox() {
+  showBlindbox.value = true
+}
+
+function handleDraw() {
+  drawRandomMemory()
+}
+
+function closeBlindbox() {
+  showBlindbox.value = false
 }
 </script>
 
@@ -113,6 +149,32 @@ function getCityName(cityId: number) {
         </div>
       </section>
 
+      <!-- 城市记忆盲盒 -->
+      <section class="mb-8">
+        <h2 class="section-title">城市记忆盲盒</h2>
+        <div
+          class="card card-hover cursor-pointer overflow-hidden relative"
+          @click="openBlindbox"
+        >
+          <div class="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-amber-500/10"></div>
+          <div class="relative flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <span class="text-3xl">🎁</span>
+              </div>
+              <div>
+                <h3 class="font-bold text-text-primary text-lg">随机重逢</h3>
+                <p class="text-sm text-text-secondary">从历史足迹中抽取一段旅行回忆</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 text-purple-600">
+              <span class="text-sm font-medium">开启盲盒</span>
+              <span class="text-xl">→</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- 快捷操作 -->
       <section>
         <h2 class="section-title">快捷操作</h2>
@@ -148,6 +210,15 @@ function getCityName(cityId: number) {
           </router-link>
         </div>
       </section>
+
+      <MemoryBlindbox
+        :visible="showBlindbox"
+        :memory="currentMemory"
+        :is-revealing="isRevealing"
+        :has-memories="hasMemories"
+        @close="closeBlindbox"
+        @draw="handleDraw"
+      />
     </div>
   </div>
 </template>
