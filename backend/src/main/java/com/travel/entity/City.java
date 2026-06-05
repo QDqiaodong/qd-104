@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 @TableName("city")
 public class City {
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.INPUT)
     private Long id;
     private String province;
     private String name;

@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("checkin")
 public class Checkin {
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.INPUT)
     private Long id;
     private Long userId;
     private Long cityId;

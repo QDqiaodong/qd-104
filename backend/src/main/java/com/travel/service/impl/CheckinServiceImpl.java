@@ -22,6 +22,9 @@ public class CheckinServiceImpl implements CheckinService {
     @Autowired
     private CityRepository cityRepository;
 
+    @Autowired
+    private CommonMapper commonMapper;
+
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -71,6 +74,9 @@ public class CheckinServiceImpl implements CheckinService {
         checkin.setTravelMethod(request.getTravelMethod());
         checkin.setCreateTime(LocalDateTime.now());
         checkinRepository.insert(checkin);
+        
+        Long checkinId = commonMapper.getLastInsertId();
+        checkin.setId(checkinId);
 
         return convertToResponse(checkin);
     }

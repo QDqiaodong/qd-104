@@ -32,6 +32,9 @@ public class JournalServiceImpl implements JournalService {
     @Autowired
     private CollectionRepository collectionRepository;
 
+    @Autowired
+    private CommonMapper commonMapper;
+
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
@@ -77,6 +80,9 @@ public class JournalServiceImpl implements JournalService {
         journal.setLikeCount(0);
         journal.setCollectCount(0);
         journalRepository.insert(journal);
+        
+        Long journalId = commonMapper.getLastInsertId();
+        journal.setId(journalId);
 
         return convertToResponse(journal);
     }
@@ -100,6 +106,9 @@ public class JournalServiceImpl implements JournalService {
         collection.setJournalId(journalId);
         collection.setCreateTime(LocalDateTime.now());
         collectionRepository.insert(collection);
+        
+        Long collectionId = commonMapper.getLastInsertId();
+        collection.setId(collectionId);
 
         Journal journal = journalRepository.selectById(journalId);
         if (journal != null) {

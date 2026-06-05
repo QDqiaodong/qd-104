@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("journal")
 public class Journal {
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.INPUT)
     private Long id;
     private String title;
     private String content;

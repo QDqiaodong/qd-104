@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.travel.dto.*;
 import com.travel.entity.User;
 import com.travel.repository.UserRepository;
+import com.travel.repository.CommonMapper;
 import com.travel.service.AuthService;
 import com.travel.config.JwtConfig;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private CommonMapper commonMapper;
 
     @Autowired
     private JwtConfig jwtConfig;
@@ -51,9 +55,12 @@ public class AuthServiceImpl implements AuthService {
         user.setNickname(request.getNickname());
         user.setCreateTime(LocalDateTime.now());
         userRepository.insert(user);
+        
+        Long userId = commonMapper.getLastInsertId();
+        user.setId(userId);
 
-        String token = jwtConfig.generateToken(user.getId());
-        return new AuthResponse(token, user.getId(), user.getNickname(), user.getEmail());
+        String token = jwtConfig.generateToken(userId);
+        return new AuthResponse(token, userId, user.getNickname(), user.getEmail());
     }
 
     @Override
