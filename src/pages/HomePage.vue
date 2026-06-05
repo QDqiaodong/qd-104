@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useJournalStore } from '@/stores/journal'
 import { useCheckinStore } from '@/stores/checkin'
+import FootprintHeatmap from '@/components/FootprintHeatmap.vue'
 import type { Journal } from '@/types'
 
 const router = useRouter()
@@ -165,6 +166,17 @@ function formatDate(date: string) {
             </button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- 足迹热力图 -->
+    <section class="py-12 bg-white">
+      <div class="container mx-auto px-4">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="section-title mb-0">足迹日历</h2>
+          <p class="text-text-muted text-sm">点击日期查看当天的游记和打卡</p>
+        </div>
+        <FootprintHeatmap />
       </div>
     </section>
 

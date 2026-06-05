@@ -134,6 +134,22 @@ export interface CollageConfig {
   location: string
 }
 
+// 足迹热力图相关
+export interface DailyActivity {
+  id: number
+  type: 'journal' | 'checkin'
+  title: string
+  cityName: string
+  time: string
+  image?: string
+}
+
+export interface FootprintHeatmapData {
+  date: string
+  activityCount: number
+  activities: DailyActivity[]
+}
+
 // API响应封装
 export interface ApiResponse<T = any> {
   code: number
