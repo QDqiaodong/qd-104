@@ -17,6 +17,7 @@ const submitting = ref(false)
 const viewMode = ref<ViewMode>('scroll')
 const scrollContainer = ref<HTMLElement | null>(null)
 const currentScrollIndex = ref(0)
+const zoomedCard = ref<number | null>(null)
 
 const travelMethods: { value: TravelMethod; label: string; icon: string; color: string }[] = [
   { value: 'plane', label: '飞机', icon: '✈️', color: 'from-sky-400 to-blue-500' },
@@ -251,6 +252,46 @@ function isYearActive(groupIndex: number) {
   return currentScrollIndex.value >= currentYearStartIndex && 
          currentScrollIndex.value < nextYearStartIndex
 }
+
+function getDaysApart(checkin1: Checkin, checkin2: Checkin) {
+  const date1 = new Date(checkin1.travelTime)
+  const date2 = new Date(checkin2.travelTime)
+  const diffTime = Math.abs(date2.getTime() - date1.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return diffDays
+}
+
+function getTravelStory(checkin: Checkin, index: number) {
+  const prevCheckin = sortedCheckins.value[index - 1]
+  if (!prevCheckin) return { text: '旅途的起点', emoji: '🚀' }
+  
+  const days = getDaysApart(prevCheckin, checkin)
+  const prevCity = getCityName(prevCheckin.cityId)
+  const currentCity = getCityName(checkin.cityId)
+  
+  if (prevCity === currentCity) {
+    if (days <= 1) return { text: '故地重游', emoji: '🔄' }
+    if (days <= 7) return { text: `${days}天后再见`, emoji: '👋' }
+    return { text: `时隔${days}天重逢`, emoji: '💫' }
+  }
+  
+  if (days <= 3) return { text: `从${prevCity}到${currentCity}`, emoji: '🗺️' }
+  if (days <= 30) return { text: `${days}天后的新旅程`, emoji: '✨' }
+  if (days <= 90) return { text: `${Math.floor(days / 7)}周后的遇见`, emoji: '🌟' }
+  return { text: `时隔${Math.floor(days / 30)}个月`, emoji: '⏰' }
+}
+
+function toggleZoom(index: number) {
+  if (zoomedCard.value === index) {
+    zoomedCard.value = null
+  } else {
+    zoomedCard.value = index
+  }
+}
+
+function closeZoom() {
+  zoomedCard.value = null
+}
 </script>
 
 <template>
@@ -466,6 +507,86 @@ function isYearActive(groupIndex: number) {
 
     <!-- 旅行长卷视图 -->
     <div v-else class="pb-16">
+      <!-- 放大查看模态框 -->
+      <transition name="fade">
+        <div v-if="zoomedCard !== null" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" @click.self="closeZoom">
+          <div class="relative max-w-lg w-full transform transition-all duration-300 scale-100">
+            <button @click="closeZoom" class="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+            
+            <div class="bg-white rounded-3xl overflow-hidden shadow-2xl">
+              <!-- 放大卡片头部 -->
+              <div 
+                v-if="scrollCheckins[zoomedCard]"
+                :class="[
+                  'relative h-48 bg-gradient-to-br p-8 overflow-hidden',
+                  getMethodColor(scrollCheckins[zoomedCard].travelMethod)
+                ]"
+              >
+                <div class="absolute inset-0 opacity-20">
+                  <div class="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/30"></div>
+                  <div class="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/20 -mb-16 -ml-16"></div>
+                </div>
+                
+                <div class="relative z-10 h-full flex flex-col justify-center">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <div class="text-7xl font-serif font-bold text-white drop-shadow-xl">
+                        {{ formatShortDate(scrollCheckins[zoomedCard].travelTime).split('月')[0] }}
+                      </div>
+                      <div class="text-white/90 text-2xl font-medium mt-1">
+                        {{ formatShortDate(scrollCheckins[zoomedCard].travelTime).split('月')[1] }}
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-6xl drop-shadow-xl">{{ getSeasonEmoji(scrollCheckins[zoomedCard].travelTime) }}</div>
+                      <div class="text-white/90 text-base mt-2 font-medium">{{ formatYear(scrollCheckins[zoomedCard].travelTime) }}年 · {{ getSeason(scrollCheckins[zoomedCard].travelTime) }}季</div>
+                    </div>
+                  </div>
+                  
+                  <div class="mt-6 flex items-center space-x-3">
+                    <span class="px-4 py-1.5 bg-white/25 backdrop-blur-sm rounded-full text-white text-base font-medium">
+                      {{ getCityName(scrollCheckins[zoomedCard].cityId) }}
+                    </span>
+                    <span class="px-4 py-1.5 bg-white/25 backdrop-blur-sm rounded-full text-white text-base flex items-center space-x-2">
+                      <span class="text-xl">{{ getMethodIcon(scrollCheckins[zoomedCard].travelMethod) }}</span>
+                      <span>{{ getMethodLabel(scrollCheckins[zoomedCard].travelMethod) }}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 放大卡片内容 -->
+              <div v-if="scrollCheckins[zoomedCard]" class="p-8">
+                <h2 class="text-3xl font-serif font-bold text-text-primary mb-4">
+                  {{ scrollCheckins[zoomedCard].location }}
+                </h2>
+                
+                <div class="bg-gradient-to-r from-primary-50 to-accent-50 rounded-2xl p-6 mb-6">
+                  <p class="text-xl text-text-secondary italic leading-relaxed">
+                    「{{ generateLocationPhrase(scrollCheckins[zoomedCard]) }}」
+                  </p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="bg-warm-card rounded-xl p-4 text-center">
+                    <div class="text-3xl mb-2">{{ getTravelStory(scrollCheckins[zoomedCard], zoomedCard).emoji }}</div>
+                    <div class="text-sm text-text-secondary">{{ getTravelStory(scrollCheckins[zoomedCard], zoomedCard).text }}</div>
+                  </div>
+                  <div class="bg-warm-card rounded-xl p-4 text-center">
+                    <div class="text-3xl mb-2">🏆</div>
+                    <div class="text-sm text-text-secondary">第 {{ zoomedCard + 1 }} 次出行</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
+
       <!-- 长卷背景装饰 -->
       <div class="relative">
         <!-- 顶部装饰线 -->
@@ -577,19 +698,28 @@ function isYearActive(groupIndex: number) {
                     class="scroll-card flex-shrink-0 relative"
                     :style="{ scrollSnapAlign: 'center' }"
                   >
+                    <!-- 旅程故事标签 -->
+                    <div class="absolute -top-4 left-1/2 -translate-x-1/2 z-30">
+                      <div class="px-4 py-1.5 bg-white rounded-full shadow-md border border-warm-border flex items-center space-x-1.5">
+                        <span class="text-lg">{{ getTravelStory(checkin, index).emoji }}</span>
+                        <span class="text-sm font-medium text-text-secondary">{{ getTravelStory(checkin, index).text }}</span>
+                      </div>
+                    </div>
+
                     <!-- 卡片 -->
                     <div 
+                      @click="toggleZoom(index)"
                       :class="[
-                        'w-80 bg-white rounded-2xl shadow-xl overflow-hidden transition-all duration-500 border border-warm-border/30',
+                        'w-80 bg-white rounded-2xl shadow-xl overflow-hidden transition-all duration-500 border border-warm-border/30 cursor-pointer mt-6',
                         currentScrollIndex === index 
                           ? 'scale-105 shadow-2xl z-20 ring-4 ring-primary/20' 
-                          : 'scale-95 opacity-70 hover:opacity-90'
+                          : 'scale-95 opacity-70 hover:opacity-90 hover:scale-100'
                       ]"
                     >
                       <!-- 卡片头部 - 日期和季节 -->
                       <div 
                         :class="[
-                          'relative h-32 bg-gradient-to-br p-6 overflow-hidden',
+                          'relative h-36 bg-gradient-to-br p-6 overflow-hidden',
                           getMethodColor(checkin.travelMethod)
                         ]"
                       >
@@ -602,25 +732,25 @@ function isYearActive(groupIndex: number) {
                         <div class="relative z-10">
                           <div class="flex items-center justify-between">
                             <div>
-                              <div class="text-4xl font-serif font-bold text-white">
+                              <div class="text-5xl font-serif font-bold text-white drop-shadow-lg">
                                 {{ formatShortDate(checkin.travelTime).split('月')[0] }}
                               </div>
-                              <div class="text-white/90 text-lg">
+                              <div class="text-white/90 text-xl font-medium">
                                 {{ formatShortDate(checkin.travelTime).split('月')[1] }}
                               </div>
                             </div>
                             <div class="text-right">
-                              <div class="text-3xl">{{ getSeasonEmoji(checkin.travelTime) }}</div>
-                              <div class="text-white/80 text-sm mt-1">{{ getSeason(checkin.travelTime) }}季</div>
+                              <div class="text-4xl drop-shadow-lg">{{ getSeasonEmoji(checkin.travelTime) }}</div>
+                              <div class="text-white/90 text-sm mt-1 font-medium">{{ getSeason(checkin.travelTime) }}季之旅</div>
                             </div>
                           </div>
                           
-                          <div class="mt-3 flex items-center space-x-2">
+                          <div class="mt-4 flex items-center space-x-2">
                             <span class="px-3 py-1 bg-white/25 backdrop-blur-sm rounded-full text-white text-sm font-medium">
                               {{ formatYear(checkin.travelTime) }}年
                             </span>
-                            <span class="px-3 py-1 bg-white/25 backdrop-blur-sm rounded-full text-white text-sm flex items-center space-x-1">
-                              <span>{{ getMethodIcon(checkin.travelMethod) }}</span>
+                            <span class="px-3 py-1 bg-white/25 backdrop-blur-sm rounded-full text-white text-sm flex items-center space-x-1.5">
+                              <span class="text-lg">{{ getMethodIcon(checkin.travelMethod) }}</span>
                               <span>{{ getMethodLabel(checkin.travelMethod) }}</span>
                             </span>
                           </div>
@@ -631,39 +761,47 @@ function isYearActive(groupIndex: number) {
                       <div class="absolute left-1/2 -translate-x-1/2 -bottom-3 z-10">
                         <div 
                           :class="[
-                            'w-6 h-6 rounded-full border-4 border-white shadow-lg bg-gradient-to-br',
+                            'w-8 h-8 rounded-full border-4 border-white shadow-xl bg-gradient-to-br flex items-center justify-center',
                             getMethodColor(checkin.travelMethod)
                           ]"
-                        ></div>
+                        >
+                          <span class="text-white text-sm font-bold">{{ index + 1 }}</span>
+                        </div>
                       </div>
 
                       <!-- 卡片内容 -->
                       <div class="p-6 pt-8">
                         <!-- 城市 -->
-                        <div class="flex items-center space-x-2 mb-3">
-                          <span class="text-xl">📍</span>
-                          <span class="badge badge-primary text-base px-4 py-1.5">
+                        <div class="flex items-center space-x-2 mb-4">
+                          <span class="text-2xl">📍</span>
+                          <span class="badge badge-primary text-lg px-5 py-2 font-serif">
                             {{ getCityName(checkin.cityId) }}
                           </span>
                         </div>
 
                         <!-- 地点 -->
-                        <h3 class="text-xl font-serif font-semibold text-text-primary mb-3">
+                        <h3 class="text-2xl font-serif font-bold text-text-primary mb-4 leading-tight">
                           {{ checkin.location }}
                         </h3>
 
                         <!-- 诗意短句 -->
-                        <p class="text-text-secondary italic border-l-3 border-primary/30 pl-3 py-1 bg-primary-50/50 rounded-r-lg">
-                          「{{ generateLocationPhrase(checkin) }}」
-                        </p>
+                        <div class="relative">
+                          <div class="absolute -left-1 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-accent rounded-full"></div>
+                          <p class="text-text-secondary italic pl-4 py-2 bg-gradient-to-r from-primary-50/50 to-transparent rounded-r-lg text-lg">
+                            「{{ generateLocationPhrase(checkin) }}」
+                          </p>
+                        </div>
 
                         <!-- 序号标记 -->
-                        <div class="mt-4 flex items-center justify-between pt-4 border-t border-warm-border">
-                          <span class="text-sm text-text-muted">
-                            第 {{ index + 1 }} 次出行
-                          </span>
-                          <span class="text-sm text-text-muted">
-                            {{ formatDate(checkin.createTime).replace(/年\d+月/, '').replace('日', '') }} 记录
+                        <div class="mt-6 flex items-center justify-between pt-4 border-t border-warm-border">
+                          <div class="flex items-center space-x-1">
+                            <span class="text-lg">📝</span>
+                            <span class="text-sm text-text-muted">
+                              {{ formatDate(checkin.createTime).replace('年', '/').replace('月', '/').replace('日', '') }}
+                            </span>
+                          </div>
+                          <span class="text-sm font-medium text-primary">
+                            第 {{ index + 1 }} 站
                           </span>
                         </div>
                       </div>
@@ -674,12 +812,14 @@ function isYearActive(groupIndex: number) {
                   <div 
                     v-if="index < scrollCheckins.length - 1"
                     class="flex-shrink-0 flex items-center align-self-stretch"
-                    style="width: 32px; padding-top: 160px;"
+                    style="width: 40px; padding-top: 176px;"
                   >
-                    <div class="w-full flex justify-center space-x-1">
-                      <div class="w-2 h-2 rounded-full bg-primary/30"></div>
-                      <div class="w-2 h-2 rounded-full bg-primary/50"></div>
-                      <div class="w-2 h-2 rounded-full bg-primary/30"></div>
+                    <div class="w-full flex justify-center items-center space-x-1">
+                      <div class="w-1.5 h-1.5 rounded-full bg-primary/20"></div>
+                      <div class="w-2 h-2 rounded-full bg-primary/40"></div>
+                      <div class="w-3 h-3 rounded-full bg-primary/60 shadow-sm"></div>
+                      <div class="w-2 h-2 rounded-full bg-primary/40"></div>
+                      <div class="w-1.5 h-1.5 rounded-full bg-primary/20"></div>
                     </div>
                   </div>
                 </template>
@@ -742,5 +882,15 @@ function isYearActive(groupIndex: number) {
 
 .border-l-3 {
   border-left-width: 3px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

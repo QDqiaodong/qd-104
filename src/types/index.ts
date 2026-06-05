@@ -114,6 +114,26 @@ export interface CollectionRequest {
   journalId: number
 }
 
+// 照片拼贴相关类型
+export type CollageStyle = 'postcard' | 'filmstrip' | 'ticket' | 'polaroid' | 'mosaic'
+
+export interface CollageStyleConfig {
+  id: CollageStyle
+  name: string
+  description: string
+  icon: string
+  minImages: number
+  maxImages: number
+}
+
+export interface CollageConfig {
+  style: CollageStyle
+  title: string
+  subtitle: string
+  date: string
+  location: string
+}
+
 // API响应封装
 export interface ApiResponse<T = any> {
   code: number
