@@ -1,0 +1,71 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local AI / workspace metadata
+.trae/
+.codex/
+
+# Logs / temp / cache
+*.log
+logs/
+*.out
+*.err
+*.pid
+*.pid.lock
+tmp/
+temp/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment / local overrides
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.local
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-*.local.yml
+frontend/.env.local
+frontend/.env.*.local
+
+# Frontend
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# Java / backend
+target/
+.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.ear
+surefire-reports/
+
+# Local database / runtime files
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker runtime data
+docker/mysql/data/
+docker/mysql/logs/

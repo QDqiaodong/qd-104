@@ -1,0 +1,122 @@
+// 用户相关类型
+export interface User {
+  id: number
+  email: string
+  nickname: string
+  avatar?: string
+  createTime?: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface RegisterRequest {
+  email: string
+  password: string
+  nickname: string
+}
+
+export interface AuthResponse {
+  token: string
+  userId: number
+  nickname: string
+  email: string
+}
+
+// 城市字典
+export interface City {
+  id: number
+  province: string
+  name: string
+  description?: string
+}
+
+// 游记相关
+export interface Journal {
+  id: number
+  title: string
+  content: string
+  images: string[]
+  cityId: number
+  cityName: string
+  authorId: number
+  authorName: string
+  authorAvatar?: string
+  createTime: string
+  likeCount: number
+  collectCount: number
+  isLiked?: boolean
+  isCollected?: boolean
+}
+
+export interface JournalListRequest {
+  page: number
+  pageSize: number
+  cityId?: number
+  keyword?: string
+}
+
+export interface JournalListResponse {
+  list: Journal[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface PublishJournalRequest {
+  title: string
+  content: string
+  images: string[]
+  cityId: number
+}
+
+// 打卡相关
+export type TravelMethod = 'plane' | 'train' | 'car' | 'walk' | 'other'
+
+export interface Checkin {
+  id: number
+  userId: number
+  cityId: number
+  cityName: string
+  location: string
+  travelTime: string
+  travelMethod: TravelMethod
+  createTime: string
+}
+
+export interface CheckinRequest {
+  cityId: number
+  location: string
+  travelTime: string
+  travelMethod: TravelMethod
+}
+
+export interface CheckinListResponse {
+  list: Checkin[]
+  total: number
+}
+
+// 用户档案统计
+export interface UserProfile {
+  userId: number
+  nickname: string
+  cityCount: number
+  journalCount: number
+  checkinCount: number
+  collectCount: number
+  cities: City[]
+}
+
+// 收藏
+export interface CollectionRequest {
+  journalId: number
+}
+
+// API响应封装
+export interface ApiResponse<T = any> {
+  code: number
+  message: string
+  data: T
+}
