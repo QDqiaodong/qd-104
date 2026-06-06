@@ -20,3 +20,8 @@ export async function createCheckin(data: CheckinRequest): Promise<Checkin> {
 export async function getCities(): Promise<City[]> {
   return get<City[]>('/cities')
 }
+
+// 搜索城市（支持名称、省份、别名搜索）
+export async function searchCities(keyword?: string): Promise<City[]> {
+  return get<City[]>('/cities/search', { keyword })
+}

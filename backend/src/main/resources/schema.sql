@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS city (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     province VARCHAR(50) NOT NULL,
     name VARCHAR(50) NOT NULL,
-    description TEXT
+    description TEXT,
+    aliases TEXT
 );
 
 -- 游记表

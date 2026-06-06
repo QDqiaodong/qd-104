@@ -31,6 +31,7 @@ export interface City {
   province: string
   name: string
   description?: string
+  aliases?: string
 }
 
 // 游记相关

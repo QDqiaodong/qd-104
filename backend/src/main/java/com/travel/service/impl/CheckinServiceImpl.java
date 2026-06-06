@@ -86,6 +86,23 @@ public class CheckinServiceImpl implements CheckinService {
         return cityRepository.selectList(null);
     }
 
+    @Override
+    public List<City> searchCities(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getCities();
+        }
+        String searchKeyword = keyword.trim();
+        QueryWrapper<City> queryWrapper = new QueryWrapper<>();
+        queryWrapper.and(wrapper -> wrapper
+                .like("name", searchKeyword)
+                .or()
+                .like("province", searchKeyword)
+                .or()
+                .like("aliases", searchKeyword)
+        );
+        return cityRepository.selectList(queryWrapper);
+    }
+
     private CheckinResponse convertToResponse(Checkin checkin) {
         City city = cityRepository.selectById(checkin.getCityId());
 

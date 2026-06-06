@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useJournalStore } from '@/stores/journal'
 import { useCheckinStore } from '@/stores/checkin'
+import CitySearchSelect from '@/components/CitySearchSelect.vue'
 import imageCompression from 'browser-image-compression'
 import type { CollageStyle, CollageStyleConfig } from '@/types'
 
@@ -523,25 +524,7 @@ async function handleSubmit() {
 
           <div>
             <label class="block text-sm font-medium text-text-primary mb-2">所在城市</label>
-            <select
-              v-model="selectedCityId"
-              class="input-field"
-            >
-              <option value="">请选择城市</option>
-              <optgroup
-                v-for="province in [...new Set(checkinStore.cities.map(c => c.province))]"
-                :key="province"
-                :label="province"
-              >
-                <option
-                  v-for="city in checkinStore.cities.filter(c => c.province === province)"
-                  :key="city.id"
-                  :value="city.id"
-                >
-                  {{ city.name }}
-                </option>
-              </optgroup>
-            </select>
+            <CitySearchSelect v-model="selectedCityId" placeholder="输入城市名或别名，如：魔都、蓉城、姑苏" />
           </div>
 
           <div>

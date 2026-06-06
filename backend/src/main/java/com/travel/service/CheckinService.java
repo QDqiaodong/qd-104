@@ -10,4 +10,5 @@ public interface CheckinService {
     PageResponse<CheckinResponse> getCheckinList(Long userId, String sortBy, String sortOrder);
     CheckinResponse createCheckin(Long userId, CheckinRequest request);
     List<City> getCities();
+    List<City> searchCities(String keyword);
 }

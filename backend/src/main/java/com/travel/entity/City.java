@@ -13,4 +13,5 @@ public class City {
     private String province;
     private String name;
     private String description;
+    private String aliases;
 }

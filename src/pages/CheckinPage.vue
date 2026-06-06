@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch, nextTick, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCheckinStore } from '@/stores/checkin'
+import CitySearchSelect from '@/components/CitySearchSelect.vue'
 import type { Checkin, TravelMethod } from '@/types'
 
 const route = useRoute()
@@ -439,16 +440,7 @@ function closeZoom() {
             <!-- 城市选择 -->
             <div>
               <label class="block text-sm font-medium text-text-primary mb-2">选择城市</label>
-              <select v-model="selectedCityId" class="input-field">
-                <option value="">请选择城市</option>
-                <template v-for="group in groupedCities" :key="group.province">
-                  <optgroup :label="group.province">
-                    <option v-for="city in group.cities" :key="city.id" :value="city.id">
-                      {{ city.name }}
-                    </option>
-                  </optgroup>
-                </template>
-              </select>
+              <CitySearchSelect v-model="selectedCityId" placeholder="输入城市名或别名，如：魔都、蓉城、姑苏" />
             </div>
 
             <!-- 打卡地点 -->

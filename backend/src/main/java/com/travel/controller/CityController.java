@@ -20,4 +20,10 @@ public class CityController {
         List<City> cities = checkinService.getCities();
         return ApiResponse.success(cities);
     }
+
+    @GetMapping("/search")
+    public ApiResponse<List<City>> searchCities(@RequestParam(required = false) String keyword) {
+        List<City> cities = checkinService.searchCities(keyword);
+        return ApiResponse.success(cities);
+    }
 }
