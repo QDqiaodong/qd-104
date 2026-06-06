@@ -4,8 +4,11 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { useCheckinStore } from '@/stores/checkin'
+import { useJournalStore } from '@/stores/journal'
 import { useMemoryBlindbox } from '@/composables/useMemoryBlindbox'
 import MemoryBlindbox from '@/components/MemoryBlindBox.vue'
+import { generateMilestones, getMilestoneTheaterTitle } from '@/utils/milestones'
+import type { MilestoneItem } from '@/utils/milestones'
 import {
   analyzeTravelRhythm,
   getRhythmById,
@@ -19,9 +22,18 @@ const router = useRouter()
 const authStore = useAuthStore()
 const userStore = useUserStore()
 const checkinStore = useCheckinStore()
+const journalStore = useJournalStore()
 
 const loading = ref(true)
 const showBlindbox = ref(false)
+
+const milestones = computed<MilestoneItem[]>(() => {
+  return generateMilestones(checkinStore.checkins, journalStore.journals)
+})
+
+const theaterTitle = computed(() => {
+  return getMilestoneTheaterTitle(milestones.value.length)
+})
 
 const rhythmPortrait = computed<TravelRhythmPortrait>(() => {
   return analyzeTravelRhythm(checkinStore.checkins)
@@ -52,7 +64,8 @@ onMounted(async () => {
     await Promise.all([
       userStore.fetchProfile(),
       checkinStore.fetchCities(),
-      checkinStore.fetchCheckins()
+      checkinStore.fetchCheckins(),
+      journalStore.fetchJournals({ page: 1, pageSize: 100 })
     ])
   } finally {
     loading.value = false
@@ -138,6 +151,119 @@ function closeBlindbox() {
           <div class="text-text-secondary">收藏游记</div>
         </div>
       </div>
+
+      <!-- 里程碑剧场 -->
+      <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="section-title mb-0">
+            <span class="mr-2">🎭</span>
+            {{ theaterTitle }}
+          </h2>
+          <span class="text-xs text-text-secondary">
+            共 {{ milestones.length }} 个人生节点
+          </span>
+        </div>
+
+        <div v-if="loading" class="card animate-pulse">
+          <div class="h-40 bg-secondary rounded"></div>
+        </div>
+
+        <div v-else-if="milestones.length === 0" class="card text-center py-10">
+          <div class="text-6xl mb-4">🎬</div>
+          <h3 class="text-lg font-medium text-text-primary mb-2">剧场幕布尚未拉开</h3>
+          <p class="text-text-secondary mb-4">开始记录你的第一次旅行，书写专属人生剧本</p>
+          <router-link to="/checkin" class="btn-primary">开启旅程</router-link>
+        </div>
+
+        <div v-else class="milestone-theater">
+          <!-- 剧场顶幕 -->
+          <div class="theater-curtain">
+            <div class="curtain-left"></div>
+            <div class="curtain-right"></div>
+            <div class="spotlight"></div>
+          </div>
+
+          <!-- 舞台区域 -->
+          <div class="theater-stage">
+            <div class="milestone-timeline">
+              <div
+                v-for="(milestone, index) in milestones"
+                :key="milestone.id"
+                class="milestone-node"
+                :style="{ animationDelay: `${index * 0.15}s` }"
+              >
+                <!-- 时间轴连接线 -->
+                <div
+                  v-if="index < milestones.length - 1"
+                  class="timeline-connector"
+                ></div>
+
+                <!-- 里程碑卡片 -->
+                <div
+                  class="milestone-card card overflow-hidden relative"
+                  :class="[index % 2 === 0 ? 'milestone-left' : 'milestone-right']"
+                >
+                  <div class="absolute inset-0 opacity-10">
+                    <div
+                      class="absolute top-0 w-32 h-32 rounded-full blur-2xl"
+                      :class="[
+                        index % 2 === 0 ? '-left-4' : '-right-4',
+                        `bg-gradient-to-br ${milestone.gradientFrom} ${milestone.gradientTo}`
+                      ]"
+                    ></div>
+                  </div>
+
+                  <div class="relative flex items-start space-x-4">
+                    <!-- 图标舞台 -->
+                    <div
+                      class="milestone-icon w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg flex-shrink-0"
+                      :class="[milestone.gradientFrom, milestone.gradientTo]"
+                    >
+                      <span class="text-2xl">{{ milestone.icon }}</span>
+                    </div>
+
+                    <!-- 内容 -->
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center space-x-2 mb-1">
+                        <span
+                          class="text-xs font-medium px-2 py-0.5 rounded-full"
+                          :class="[milestone.accentColor, 'bg-white/60']"
+                        >
+                          第{{ index + 1 }}幕
+                        </span>
+                        <span v-if="milestone.date" class="text-xs text-text-secondary">
+                          {{ milestone.date }}
+                        </span>
+                      </div>
+                      <h3 class="font-bold text-text-primary text-lg mb-1">
+                        {{ milestone.title }}
+                      </h3>
+                      <p class="text-text-secondary text-sm mb-2">
+                        {{ milestone.description }}
+                      </p>
+                      <p
+                        class="font-serif text-lg"
+                        :class="milestone.accentColor"
+                      >
+                        {{ milestone.value }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 节点圆点 -->
+                <div
+                  class="milestone-dot"
+                  :class="`bg-gradient-to-br ${milestone.gradientFrom} ${milestone.gradientTo}`"
+                ></div>
+              </div>
+            </div>
+
+            <!-- 舞台地面 -->
+            <div class="stage-floor"></div>
+          </div>
+        </div>
+      </section>
 
       <!-- 旅途节奏画像 -->
       <section class="mb-8">
@@ -429,3 +555,217 @@ function closeBlindbox() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.milestone-theater {
+  position: relative;
+}
+
+.theater-curtain {
+  position: relative;
+  height: 32px;
+  overflow: hidden;
+  margin-bottom: -8px;
+  z-index: 2;
+}
+
+.curtain-left,
+.curtain-right {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(180deg, #7c3aed 0%, #4f46e5 100%);
+  opacity: 0.8;
+}
+
+.curtain-left {
+  left: 0;
+  border-radius: 0 0 40% 0;
+  transform-origin: top left;
+  animation: curtainOpenLeft 1.5s ease-out forwards;
+}
+
+.curtain-right {
+  right: 0;
+  border-radius: 0 0 0 40%;
+  transform-origin: top right;
+  animation: curtainOpenRight 1.5s ease-out forwards;
+}
+
+.spotlight {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.4) 0%, transparent 100%);
+  border-radius: 50% 50% 0 0;
+  animation: spotlightPulse 3s ease-in-out infinite;
+}
+
+@keyframes curtainOpenLeft {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0.3); }
+}
+
+@keyframes curtainOpenRight {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0.3); }
+}
+
+@keyframes spotlightPulse {
+  0%, 100% { opacity: 0.6; width: 100px; }
+  50% { opacity: 1; width: 140px; }
+}
+
+.theater-stage {
+  position: relative;
+  padding: 20px 0 30px;
+}
+
+.milestone-timeline {
+  position: relative;
+  padding: 10px 0;
+}
+
+.milestone-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  animation: milestoneAppear 0.8s ease-out forwards;
+  margin-bottom: 24px;
+}
+
+.milestone-node:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes milestoneAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.timeline-connector {
+  position: absolute;
+  left: 50%;
+  top: 56px;
+  bottom: -24px;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    #c4b5fd 0%,
+    #a78bfa 50%,
+    #c4b5fd 100%
+  );
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.milestone-dot {
+  position: absolute;
+  left: 50%;
+  top: 44px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9),
+              0 0 20px rgba(167, 139, 250, 0.5);
+  animation: dotGlow 2s ease-in-out infinite;
+}
+
+@keyframes dotGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9),
+                0 0 15px rgba(167, 139, 250, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9),
+                0 0 25px rgba(167, 139, 250, 0.7);
+  }
+}
+
+.milestone-card {
+  position: relative;
+  width: calc(50% - 36px);
+  z-index: 2;
+}
+
+.milestone-left {
+  margin-right: auto;
+  margin-left: 0;
+}
+
+.milestone-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.milestone-icon {
+  animation: iconFloat 3s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.stage-floor {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(139, 92, 246, 0.1) 50%,
+    rgba(139, 92, 246, 0.15) 100%
+  );
+  border-radius: 0 0 16px 16px;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .milestone-timeline {
+    padding-left: 8px;
+  }
+
+  .milestone-card {
+    width: calc(100% - 44px);
+    margin-left: 44px !important;
+    margin-right: 0 !important;
+  }
+
+  .timeline-connector {
+    left: 16px;
+    top: 48px;
+  }
+
+  .milestone-dot {
+    left: 16px;
+    top: 36px;
+    width: 12px;
+    height: 12px;
+  }
+
+  .milestone-icon {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .milestone-icon span {
+    font-size: 1.25rem;
+  }
+}
+</style>
