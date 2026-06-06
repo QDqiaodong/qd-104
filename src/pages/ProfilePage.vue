@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { useCheckinStore } from '@/stores/checkin'
 import { useMemoryBlindbox } from '@/composables/useMemoryBlindbox'
 import MemoryBlindbox from '@/components/MemoryBlindBox.vue'
+import {
+  analyzeTravelRhythm,
+  getRhythmById,
+  TRAVEL_RHYTHMS,
+  WEEKDAY_NAMES,
+  MONTH_NAMES
+} from '@/utils/travelRhythm'
+import type { TravelRhythmPortrait } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -14,6 +22,22 @@ const checkinStore = useCheckinStore()
 
 const loading = ref(true)
 const showBlindbox = ref(false)
+
+const rhythmPortrait = computed<TravelRhythmPortrait>(() => {
+  return analyzeTravelRhythm(checkinStore.checkins)
+})
+
+const primaryRhythm = computed(() => {
+  return getRhythmById(rhythmPortrait.value.primaryRhythm)
+})
+
+const maxMonthlyCount = computed(() => {
+  return Math.max(...rhythmPortrait.value.monthlyDistribution.map(m => m.count), 1)
+})
+
+const maxWeekdayCount = computed(() => {
+  return Math.max(...rhythmPortrait.value.weekdayDistribution.map(w => w.count), 1)
+})
 
 const {
   currentMemory,
@@ -114,6 +138,189 @@ function closeBlindbox() {
           <div class="text-text-secondary">收藏游记</div>
         </div>
       </div>
+
+      <!-- 旅途节奏画像 -->
+      <section class="mb-8">
+        <h2 class="section-title">旅途节奏画像</h2>
+
+        <div v-if="loading" class="card animate-pulse">
+          <div class="h-32 bg-secondary rounded"></div>
+        </div>
+
+        <div v-else-if="!checkinStore.checkins.length" class="card text-center py-8">
+          <div class="text-5xl mb-4">🎯</div>
+          <h3 class="text-lg font-medium text-text-primary mb-2">还没有足够的旅行数据</h3>
+          <p class="text-text-secondary mb-4">多记录几次打卡，生成你的专属旅行节奏</p>
+          <router-link to="/checkin" class="btn-primary">去打卡</router-link>
+        </div>
+
+        <div v-else class="space-y-6">
+          <!-- 主节奏卡片 -->
+          <div
+            class="card overflow-hidden relative"
+            :class="[primaryRhythm?.bgColor]"
+          >
+            <div class="absolute inset-0 opacity-10">
+              <div
+                class="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl"
+                :class="`bg-gradient-to-br ${primaryRhythm?.gradientFrom} ${primaryRhythm?.gradientTo}`"
+              ></div>
+            </div>
+            <div class="relative flex items-center space-x-6">
+              <div
+                class="w-20 h-20 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg flex-shrink-0"
+                :class="[primaryRhythm?.gradientFrom, primaryRhythm?.gradientTo]"
+              >
+                <span class="text-4xl">{{ primaryRhythm?.icon }}</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-1">
+                  <h3 class="text-xl font-bold text-text-primary">{{ primaryRhythm?.name }}</h3>
+                  <span
+                    class="px-2 py-0.5 rounded-full text-xs font-medium"
+                    :class="[primaryRhythm?.bgColor, primaryRhythm?.color]"
+                  >
+                    主节奏
+                  </span>
+                </div>
+                <p class="text-text-secondary text-sm mb-3">{{ primaryRhythm?.tagline }}</p>
+                <p class="text-lg font-serif text-text-primary">「{{ rhythmPortrait.travelStyle }}」</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 四维度评分 -->
+          <div class="card">
+            <h3 class="font-medium text-text-primary mb-4">节奏维度分析</h3>
+            <div class="space-y-4">
+              <div
+                v-for="score in rhythmPortrait.scores"
+                :key="score.type"
+                class="space-y-1"
+              >
+                <div class="flex items-center justify-between text-sm">
+                  <div class="flex items-center space-x-2">
+                    <span>{{ getRhythmById(score.type)?.icon }}</span>
+                    <span class="text-text-primary font-medium">{{ getRhythmById(score.type)?.name }}</span>
+                  </div>
+                  <span class="text-text-secondary">{{ score.percentage }}%</span>
+                </div>
+                <div class="h-2 bg-secondary rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r transition-all duration-500"
+                    :class="[
+                      getRhythmById(score.type)?.gradientFrom,
+                      getRhythmById(score.type)?.gradientTo
+                    ]"
+                    :style="{ width: `${score.percentage}%` }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 月度分布 & 星期分布 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 月度出行分布 -->
+            <div class="card">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-medium text-text-primary">月度出行分布</h3>
+                <span class="text-xs text-text-secondary">
+                  高峰: {{ rhythmPortrait.peakSeason }}
+                </span>
+              </div>
+              <div class="flex items-end justify-between h-32 space-x-1">
+                <div
+                  v-for="month in rhythmPortrait.monthlyDistribution"
+                  :key="month.month"
+                  class="flex-1 flex flex-col items-center"
+                >
+                  <div
+                    class="w-full rounded-t transition-all duration-300"
+                    :class="[
+                      month.count > 0
+                        ? 'bg-gradient-to-t from-primary to-accent'
+                        : 'bg-secondary'
+                    ]"
+                    :style="{
+                      height: `${(month.count / maxMonthlyCount) * 80 + 4}px`,
+                      minHeight: '4px'
+                    }"
+                  ></div>
+                  <span class="text-xs text-text-secondary mt-1">{{ MONTH_NAMES[month.month - 1] }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 星期出行分布 -->
+            <div class="card">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-medium text-text-primary">星期出行分布</h3>
+                <span class="text-xs text-text-secondary">
+                  共 {{ rhythmPortrait.totalCheckins }} 次打卡
+                </span>
+              </div>
+              <div class="flex items-end justify-between h-32 space-x-1">
+                <div
+                  v-for="day in rhythmPortrait.weekdayDistribution"
+                  :key="day.weekday"
+                  class="flex-1 flex flex-col items-center"
+                >
+                  <div
+                    class="w-full rounded-t transition-all duration-300"
+                    :class="[
+                      day.weekday === 0 || day.weekday === 6
+                        ? day.count > 0
+                          ? 'bg-gradient-to-t from-amber-400 to-orange-500'
+                          : 'bg-secondary'
+                        : day.count > 0
+                          ? 'bg-gradient-to-t from-primary to-accent'
+                          : 'bg-secondary'
+                    ]"
+                    :style="{
+                      height: `${(day.count / maxWeekdayCount) * 80 + 4}px`,
+                      minHeight: '4px'
+                    }"
+                  ></div>
+                  <span
+                    class="text-xs mt-1"
+                    :class="[
+                      day.weekday === 0 || day.weekday === 6
+                        ? 'text-amber-600 font-medium'
+                        : 'text-text-secondary'
+                    ]"
+                  >{{ WEEKDAY_NAMES[day.weekday] }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 节奏标签云 -->
+          <div class="card">
+            <h3 class="font-medium text-text-primary mb-4">旅行风格标签</h3>
+            <div class="flex flex-wrap gap-2">
+              <span
+                v-for="rhythm in TRAVEL_RHYTHMS"
+                :key="rhythm.id"
+                class="px-3 py-1.5 rounded-full text-sm"
+                :class="[
+                  rhythm.id === rhythmPortrait.primaryRhythm
+                    ? `${rhythm.bgColor} ${rhythm.color} font-medium`
+                    : 'bg-secondary text-text-secondary'
+                ]"
+              >
+                {{ rhythm.icon }} {{ rhythm.name }}
+              </span>
+              <span class="px-3 py-1.5 rounded-full text-sm bg-primary-50 text-primary font-medium">
+                🌍 {{ rhythmPortrait.peakSeason }}出行
+              </span>
+              <span class="px-3 py-1.5 rounded-full text-sm bg-accent-light text-accent font-medium">
+                📊 {{ rhythmPortrait.totalCheckins }} 次足迹
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- 已打卡城市 -->
       <section class="mb-8">

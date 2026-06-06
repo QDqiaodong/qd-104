@@ -151,6 +151,47 @@ export interface FootprintHeatmapData {
   activities: DailyActivity[]
 }
 
+export type TravelRhythmType = 'weekend' | 'holiday' | 'offpeak' | 'slowtravel'
+
+export interface TravelRhythmLabel {
+  id: TravelRhythmType
+  name: string
+  icon: string
+  tagline: string
+  description: string
+  color: string
+  bgColor: string
+  gradientFrom: string
+  gradientTo: string
+}
+
+export interface TravelRhythmScore {
+  type: TravelRhythmType
+  score: number
+  percentage: number
+}
+
+export interface MonthlyDistribution {
+  month: number
+  count: number
+}
+
+export interface WeekdayDistribution {
+  weekday: number
+  count: number
+}
+
+export interface TravelRhythmPortrait {
+  primaryRhythm: TravelRhythmType
+  secondaryRhythm?: TravelRhythmType
+  scores: TravelRhythmScore[]
+  monthlyDistribution: MonthlyDistribution[]
+  weekdayDistribution: WeekdayDistribution[]
+  totalCheckins: number
+  peakSeason: string
+  travelStyle: string
+}
+
 // API响应封装
 export interface ApiResponse<T = any> {
   code: number
