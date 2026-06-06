@@ -7,6 +7,7 @@ import type {
   WeekdayDistribution,
   Checkin
 } from '@/types'
+import { isLegalHoliday, isWeekend as calendarIsWeekend } from './holidayCalendar'
 
 export const TRAVEL_RHYTHMS: TravelRhythmLabel[] = [
   {
@@ -55,16 +56,6 @@ export const TRAVEL_RHYTHMS: TravelRhythmLabel[] = [
   }
 ]
 
-const CHINA_HOLIDAYS_2024: Record<string, string> = {
-  '01-01': '元旦',
-  '02-10': '春节', '02-11': '春节', '02-12': '春节', '02-13': '春节', '02-14': '春节', '02-15': '春节', '02-16': '春节', '02-17': '春节',
-  '04-04': '清明', '04-05': '清明', '04-06': '清明',
-  '05-01': '五一', '05-02': '五一', '05-03': '五一', '05-04': '五一', '05-05': '五一',
-  '06-08': '端午', '06-09': '端午', '06-10': '端午',
-  '09-15': '中秋', '09-16': '中秋', '09-17': '中秋',
-  '10-01': '国庆', '10-02': '国庆', '10-03': '国庆', '10-04': '国庆', '10-05': '国庆', '10-06': '国庆', '10-07': '国庆'
-}
-
 const PEAK_SEASON_MONTHS = [1, 2, 5, 7, 8, 10]
 const OFF_SEASON_MONTHS = [3, 4, 6, 9, 11, 12]
 
@@ -73,15 +64,11 @@ export function getRhythmById(id: TravelRhythmType): TravelRhythmLabel | undefin
 }
 
 export function isWeekend(date: Date): boolean {
-  const day = date.getDay()
-  return day === 0 || day === 6
+  return calendarIsWeekend(date)
 }
 
 export function isHoliday(date: Date): boolean {
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const key = `${month}-${day}`
-  return key in CHINA_HOLIDAYS_2024
+  return isLegalHoliday(date)
 }
 
 export function isPeakSeason(month: number): boolean {
