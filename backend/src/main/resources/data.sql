@@ -1,5 +1,5 @@
 -- 初始城市数据
-INSERT INTO city (province, name, description, aliases) VALUES
+INSERT OR IGNORE INTO city (province, name, description, aliases) VALUES
 ('北京市', '北京市', '中国的首都，古老与现代交融的城市', '京城,帝都,燕京,北平,京师'),
 ('上海市', '上海市', '国际大都市，又称"魔都"', '魔都,沪,沪上,申城,上海滩'),
 ('天津市', '天津市', '北方沿海开放城市', '津,津门,天津卫,沽上'),
