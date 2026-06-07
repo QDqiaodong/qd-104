@@ -58,7 +58,10 @@ const maxWeekdayCount = computed(() => {
 })
 
 const cityHotColdAnalysis = computed<CityHotColdAnalysis>(() => {
-  return analyzeCityHotCold(checkinStore.checkins, journalStore.journals)
+  const myJournals = journalStore.journals.filter(
+    j => j.authorId === authStore.user?.id
+  )
+  return analyzeCityHotCold(checkinStore.checkins, myJournals)
 })
 
 const {

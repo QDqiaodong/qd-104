@@ -19,14 +19,9 @@ export function analyzeCityHotCold(checkins: Checkin[], journals: Journal[]): Ci
   }
 
   for (const journal of journals) {
-    if (!cityMap.has(journal.cityId)) {
-      cityMap.set(journal.cityId, {
-        cityName: journal.cityName,
-        checkins: [],
-        journals: []
-      })
+    if (cityMap.has(journal.cityId)) {
+      cityMap.get(journal.cityId)!.journals.push(journal)
     }
-    cityMap.get(journal.cityId)!.journals.push(journal)
   }
 
   const cityItems: CityHotColdItem[] = []
@@ -69,7 +64,7 @@ export function analyzeCityHotCold(checkins: Checkin[], journals: Journal[]): Ci
   cityItems.sort((a, b) => b.totalScore - a.totalScore)
 
   const frequentlyVisited = cityItems.filter(city => city.visitCount >= 2)
-  const onceVisited = cityItems.filter(city => city.visitCount <= 1)
+  const onceVisited = cityItems.filter(city => city.visitCount === 1)
 
   const totalCities = cityItems.length
   const revisitRate = totalCities > 0
