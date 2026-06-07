@@ -135,18 +135,23 @@ public class CheckinServiceImpl implements CheckinService {
         if (excludeCheckinId != null) {
             queryWrapper.ne("id", excludeCheckinId);
         }
-        List<Checkin> historicalCheckins = checkinRepository.selectList(queryWrapper);
+        List<Checkin> allHistoricalCheckins = checkinRepository.selectList(queryWrapper);
 
-        if (historicalCheckins.isEmpty()) {
+        if (allHistoricalCheckins.isEmpty()) {
             RevisitInfo info = new RevisitInfo();
             info.setType("new_city");
-            info.setTotalVisitsInCity(0);
+            info.setTotalVisitsInCity(1);
             return info;
         }
 
         Long cityId = newCheckin.getCityId();
         String location = newCheckin.getLocation();
         LocalDateTime travelTime = newCheckin.getTravelTime();
+
+        // 只保留出行时间早于当前打卡的历史记录，避免补录时被未来记录污染
+        List<Checkin> historicalCheckins = allHistoricalCheckins.stream()
+                .filter(c -> c.getTravelTime().isBefore(travelTime))
+                .collect(Collectors.toList());
 
         // 筛选同城市的历史打卡
         List<Checkin> cityCheckins = historicalCheckins.stream()
@@ -158,7 +163,7 @@ public class CheckinServiceImpl implements CheckinService {
         if (!hasCityVisited) {
             RevisitInfo info = new RevisitInfo();
             info.setType("new_city");
-            info.setTotalVisitsInCity(0);
+            info.setTotalVisitsInCity(1);
             return info;
         }
 
@@ -197,7 +202,7 @@ public class CheckinServiceImpl implements CheckinService {
             return info;
         }
 
-        // 同城新探索 - 找最近一次同城市打卡
+        // 同城新探索 - 找最近一次同城市打卡（时间上最接近且早于当前的）
         Checkin lastCityVisit = cityCheckins.stream()
                 .max(Comparator.comparing(Checkin::getTravelTime))
                 .orElse(null);

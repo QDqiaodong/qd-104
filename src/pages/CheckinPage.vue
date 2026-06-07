@@ -6,6 +6,7 @@ import CitySearchSelect from '@/components/CitySearchSelect.vue'
 import type { Checkin, TravelMethod, RevisitInfo } from '@/types'
 import {
   detectRevisit,
+  filterCheckinsBeforeTime,
   getRevisitLabel,
   getRevisitEmoji,
   getRevisitDescription,
@@ -77,13 +78,18 @@ const formRevisitInfo = computed<RevisitInfo | null>(() => {
     return null
   }
   
+  const previousCheckins = filterCheckinsBeforeTime(
+    checkinStore.checkins,
+    travelTime.value
+  )
+  
   return detectRevisit(
     {
       cityId: selectedCityId.value,
       location: location.value,
       travelTime: travelTime.value
     },
-    checkinStore.checkins
+    previousCheckins
   )
 })
 
@@ -377,11 +383,11 @@ function getCheckinRevisitInfo(checkin: Checkin): RevisitInfo | null {
     return checkin.revisitInfo
   }
   
-  const checkinTime = new Date(checkin.travelTime).getTime()
-  const previousCheckins = checkinStore.checkins.filter(c => {
-    if (c.id === checkin.id) return false
-    return new Date(c.travelTime).getTime() < checkinTime
-  })
+  const previousCheckins = filterCheckinsBeforeTime(
+    checkinStore.checkins,
+    checkin.travelTime,
+    checkin.id
+  )
   
   return detectRevisit(
     {

@@ -141,12 +141,12 @@ export function detectRevisit(
   if (!hasCityVisited) {
     return {
       type: 'new_city',
-      totalVisitsInCity: 0
+      totalVisitsInCity: 1
     }
   }
 
   const locationMatch = findBestLocationMatch(location, historicalCheckins, cityId)
-  const totalVisitsInCity = cityCheckins.length
+  const totalVisitsInCity = cityCheckins.length + 1
 
   if (locationMatch.isMatch && locationMatch.matchedCheckin) {
     return {
@@ -171,6 +171,18 @@ export function detectRevisit(
     totalVisitsInCity,
     similarityScore: locationMatch.similarity
   }
+}
+
+export function filterCheckinsBeforeTime(
+  checkins: Checkin[],
+  travelTime: string,
+  excludeId?: number
+): Checkin[] {
+  const targetTime = new Date(travelTime).getTime()
+  return checkins.filter(c => {
+    if (excludeId !== undefined && c.id === excludeId) return false
+    return new Date(c.travelTime).getTime() < targetTime
+  })
 }
 
 export function getRevisitLabel(type: RevisitType): string {
