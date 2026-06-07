@@ -16,7 +16,13 @@ import {
   WEEKDAY_NAMES,
   MONTH_NAMES
 } from '@/utils/travelRhythm'
-import type { TravelRhythmPortrait, CityVisitArchive } from '@/types'
+import type { TravelRhythmPortrait, CityVisitArchive, CityHotColdAnalysis } from '@/types'
+import {
+  analyzeCityHotCold,
+  getCityAffinityLabel,
+  getCityAffinityColor,
+  getCityAffinityBgColor
+} from '@/utils/cityHotCold'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -49,6 +55,10 @@ const maxMonthlyCount = computed(() => {
 
 const maxWeekdayCount = computed(() => {
   return Math.max(...rhythmPortrait.value.weekdayDistribution.map(w => w.count), 1)
+})
+
+const cityHotColdAnalysis = computed<CityHotColdAnalysis>(() => {
+  return analyzeCityHotCold(checkinStore.checkins, journalStore.journals)
 })
 
 const {
@@ -451,6 +461,191 @@ function closeBlindbox() {
               <span class="px-3 py-1.5 rounded-full text-sm bg-accent-light text-accent font-medium">
                 📊 {{ rhythmPortrait.totalCheckins }} 次足迹
               </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 城市冷热门发现 -->
+      <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="section-title mb-0">
+            <span class="mr-2">🔥</span>
+            城市冷热门发现
+          </h2>
+          <span class="text-xs text-text-secondary">
+            基于 {{ cityHotColdAnalysis.totalCities }} 座城市分析
+          </span>
+        </div>
+
+        <div v-if="loading" class="card animate-pulse">
+          <div class="h-32 bg-secondary rounded"></div>
+        </div>
+
+        <div v-else-if="cityHotColdAnalysis.totalCities === 0" class="card text-center py-8">
+          <div class="text-5xl mb-4">🗺️</div>
+          <h3 class="text-lg font-medium text-text-primary mb-2">还没有足够的旅行数据</h3>
+          <p class="text-text-secondary mb-4">多去几座城市，发现你的旅行偏爱</p>
+          <router-link to="/checkin" class="btn-primary">去打卡</router-link>
+        </div>
+
+        <div v-else class="space-y-6">
+          <!-- 核心数据卡片 -->
+          <div class="grid grid-cols-3 gap-4">
+            <div class="card text-center">
+              <div class="text-3xl font-bold text-primary mb-1">{{ cityHotColdAnalysis.totalCities }}</div>
+              <div class="text-sm text-text-secondary">足迹城市</div>
+            </div>
+            <div class="card text-center">
+              <div class="text-3xl font-bold text-amber-500 mb-1">{{ cityHotColdAnalysis.revisitRate }}%</div>
+              <div class="text-sm text-text-secondary">城市回访率</div>
+            </div>
+            <div class="card text-center">
+              <div class="text-3xl font-bold text-rose-500 mb-1">{{ cityHotColdAnalysis.frequentlyVisited.length }}</div>
+              <div class="text-sm text-text-secondary">反复回访</div>
+            </div>
+          </div>
+
+          <!-- 最偏爱城市 -->
+          <div v-if="cityHotColdAnalysis.favoriteCity" class="card overflow-hidden relative bg-gradient-to-r from-rose-50 to-amber-50">
+            <div class="absolute inset-0 opacity-10">
+              <div class="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl bg-gradient-to-br from-rose-400 to-amber-400"></div>
+            </div>
+            <div class="relative flex items-center space-x-4">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-400 to-amber-400 flex items-center justify-center shadow-lg flex-shrink-0">
+                <span class="text-3xl">❤️</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-1">
+                  <span class="text-sm text-rose-600 font-medium">最偏爱的城市</span>
+                  <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-white/80 text-rose-600">
+                    {{ getCityAffinityLabel(cityHotColdAnalysis.favoriteCity.visitCount) }}
+                  </span>
+                </div>
+                <h3 class="text-xl font-bold text-text-primary">{{ cityHotColdAnalysis.favoriteCity.cityName }}</h3>
+                <p class="text-sm text-text-secondary mt-1">
+                  累计到访 <span class="font-medium text-rose-600">{{ cityHotColdAnalysis.favoriteCity.visitCount }}</span> 次
+                  · 留下 <span class="font-medium text-amber-600">{{ cityHotColdAnalysis.favoriteCity.journalCount }}</span> 篇游记
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 冷热对照 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 反复回访的城市 -->
+            <div class="card">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2">
+                  <span class="text-lg">🔥</span>
+                  <h3 class="font-medium text-text-primary">反复回访的城市</h3>
+                </div>
+                <span class="text-xs text-rose-500 font-medium">
+                  {{ cityHotColdAnalysis.frequentlyVisited.length }} 座
+                </span>
+              </div>
+
+              <div v-if="cityHotColdAnalysis.frequentlyVisited.length === 0" class="text-center py-6">
+                <div class="text-3xl mb-2">💫</div>
+                <p class="text-sm text-text-secondary">还没有反复回访的城市</p>
+              </div>
+
+              <div v-else class="space-y-3 max-h-80 overflow-y-auto">
+                <div
+                  v-for="city in cityHotColdAnalysis.frequentlyVisited"
+                  :key="city.cityId"
+                  class="flex items-center justify-between p-3 rounded-xl transition-colors"
+                  :class="getCityAffinityBgColor(city.visitCount)"
+                >
+                  <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                      <span class="text-lg">📍</span>
+                    </div>
+                    <div>
+                      <div class="font-medium text-text-primary">{{ city.cityName }}</div>
+                      <div class="text-xs text-text-secondary">
+                        {{ city.journalCount > 0 ? `${city.journalCount} 篇游记` : '' }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-lg font-bold" :class="getCityAffinityColor(city.visitCount)">
+                      {{ city.visitCount }}
+                    </div>
+                    <div class="text-xs text-text-secondary">次到访</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 只停留过一次的城市 -->
+            <div class="card">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2">
+                  <span class="text-lg">❄️</span>
+                  <h3 class="font-medium text-text-primary">只停留过一次的城市</h3>
+                </div>
+                <span class="text-xs text-sky-500 font-medium">
+                  {{ cityHotColdAnalysis.onceVisited.length }} 座
+                </span>
+              </div>
+
+              <div v-if="cityHotColdAnalysis.onceVisited.length === 0" class="text-center py-6">
+                <div class="text-3xl mb-2">🎯</div>
+                <p class="text-sm text-text-secondary">每座城市都值得再访</p>
+              </div>
+
+              <div v-else class="space-y-2 max-h-80 overflow-y-auto">
+                <div
+                  v-for="city in cityHotColdAnalysis.onceVisited"
+                  :key="city.cityId"
+                  class="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-lg bg-white shadow-sm flex items-center justify-center">
+                      <span class="text-base">🏙️</span>
+                    </div>
+                    <div>
+                      <div class="font-medium text-text-primary text-sm">{{ city.cityName }}</div>
+                      <div class="text-xs text-text-secondary">
+                        {{ formatDate(city.firstVisit) }}
+                      </div>
+                    </div>
+                  </div>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-white text-slate-500">
+                    初遇
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 旅行洞察 -->
+          <div class="card bg-secondary/30">
+            <div class="flex items-start space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
+                <span class="text-xl">💡</span>
+              </div>
+              <div>
+                <h3 class="font-medium text-text-primary mb-1">旅行洞察</h3>
+                <p class="text-sm text-text-secondary leading-relaxed">
+                  <template v-if="cityHotColdAnalysis.revisitRate >= 50">
+                    你是一位「念旧的旅行者」，超过一半的城市都有你重访的足迹。
+                    那些反复抵达的地方，一定藏着你特别的情感和故事。
+                  </template>
+                  <template v-else-if="cityHotColdAnalysis.revisitRate >= 20">
+                    你在「探索与回味」之间找到了平衡，既有新鲜城市的冒险，
+                    也有偏爱之地的重逢。每一种旅行都是独一无二的体验。
+                  </template>
+                  <template v-else-if="cityHotColdAnalysis.totalCities > 0">
+                    你是一位「好奇的探索者」，每座城市都只留下一次足迹。
+                    世界那么大，还有无数未知在等着你去发现。
+                  </template>
+                  <template v-else>
+                    开始记录你的旅行吧，每一座城市都有属于它的故事。
+                  </template>
+                </p>
+              </div>
             </div>
           </div>
         </div>

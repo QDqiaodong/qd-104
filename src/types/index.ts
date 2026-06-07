@@ -202,6 +202,25 @@ export interface TravelRhythmPortrait {
   travelStyle: string
 }
 
+export interface CityHotColdItem {
+  cityId: number
+  cityName: string
+  visitCount: number
+  journalCount: number
+  totalScore: number
+  firstVisit: string
+  lastVisit: string
+  locations: string[]
+}
+
+export interface CityHotColdAnalysis {
+  frequentlyVisited: CityHotColdItem[]
+  onceVisited: CityHotColdItem[]
+  totalCities: number
+  revisitRate: number
+  favoriteCity?: CityHotColdItem
+}
+
 // API响应封装
 export interface ApiResponse<T = any> {
   code: number
