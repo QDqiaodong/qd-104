@@ -23,6 +23,8 @@ import {
   getCityAffinityColor,
   getCityAffinityBgColor
 } from '@/utils/cityHotCold'
+import { getCategoryInfo } from '@/utils/locationKeywords'
+import type { LocationKeywordSummary } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -713,6 +715,37 @@ function closeBlindbox() {
                 <div class="text-sm font-medium text-text-primary">
                   {{ formatDate(archive.lastVisit) }}
                 </div>
+              </div>
+            </div>
+
+            <div v-if="archive.locations.length > 0">
+              <div class="text-xs text-text-secondary mb-2">路线记忆关键词</div>
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span
+                  v-for="(memory, idx) in archive.keywordSummary?.routeMemory"
+                  :key="idx"
+                  class="px-2.5 py-1 text-xs rounded-full bg-gradient-to-r from-primary/10 to-accent/10 text-primary font-medium"
+                >
+                  {{ memory }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="archive.keywordSummary?.topKeywords && archive.keywordSummary.topKeywords.length > 0">
+              <div class="text-xs text-text-secondary mb-2">高频地点词</div>
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span
+                  v-for="(kw, idx) in archive.keywordSummary.topKeywords.slice(0, 6)"
+                  :key="kw.word"
+                  class="px-2.5 py-1 text-xs rounded-full bg-secondary text-text-primary"
+                  :class="{
+                    'text-sm font-medium': idx === 0,
+                    'text-sm': idx === 1,
+                    'text-xs': idx >= 2
+                  }"
+                >
+                  {{ kw.word }}
+                </span>
               </div>
             </div>
 

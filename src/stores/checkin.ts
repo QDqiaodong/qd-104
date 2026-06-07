@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getCheckinList, createCheckin as apiCreateCheckin, getCities } from '@/api/checkin'
+import { analyzeLocationKeywords } from '@/utils/locationKeywords'
 import type { Checkin, CheckinRequest, City, CityVisitArchive } from '@/types'
 import type { CheckinListParams } from '@/api/checkin'
 
@@ -69,7 +70,8 @@ export const useCheckinStore = defineStore('checkin', () => {
         lastVisit,
         visitCount: sortedCheckins.length,
         locations,
-        checkins: sortedCheckins
+        checkins: sortedCheckins,
+        keywordSummary: analyzeLocationKeywords(sortedCheckins)
       })
     }
 

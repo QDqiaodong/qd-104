@@ -119,6 +119,40 @@ export interface CheckinListResponse {
   total: number
 }
 
+export type LocationCategory =
+  | 'scenic'
+  | 'transportation'
+  | 'food'
+  | 'accommodation'
+  | 'shopping'
+  | 'culture'
+  | 'business'
+  | 'residential'
+
+export interface KeywordItem {
+  word: string
+  count: number
+}
+
+export interface CategoryDistributionItem {
+  category: LocationCategory
+  count: number
+  percentage: number
+}
+
+export interface TopLocationItem {
+  location: string
+  count: number
+}
+
+export interface LocationKeywordSummary {
+  topKeywords: KeywordItem[]
+  categoryDistribution: CategoryDistributionItem[]
+  topLocations: TopLocationItem[]
+  routeMemory: string[]
+  totalLocations: number
+}
+
 export interface CityVisitArchive {
   cityId: number
   cityName: string
@@ -127,6 +161,7 @@ export interface CityVisitArchive {
   visitCount: number
   locations: string[]
   checkins: Checkin[]
+  keywordSummary?: LocationKeywordSummary
 }
 
 // 用户档案统计
