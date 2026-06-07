@@ -16,7 +16,7 @@ import {
   WEEKDAY_NAMES,
   MONTH_NAMES
 } from '@/utils/travelRhythm'
-import type { TravelRhythmPortrait } from '@/types'
+import type { TravelRhythmPortrait, CityVisitArchive } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -86,6 +86,14 @@ watch(() => checkinStore.checkins, (checkins) => {
 
 function getCityName(cityId: number) {
   return checkinStore.cities.find(c => c.id === cityId)?.name || '未知'
+}
+
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function openBlindbox() {
@@ -448,34 +456,95 @@ function closeBlindbox() {
         </div>
       </section>
 
-      <!-- 已打卡城市 -->
+      <!-- 城市到访档案 -->
       <section class="mb-8">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="section-title mb-0">我的足迹</h2>
+          <h2 class="section-title mb-0">城市到访档案</h2>
           <router-link to="/checkin" class="link text-sm">查看全部</router-link>
         </div>
 
-        <div v-if="loading" class="card animate-pulse">
-          <div class="h-24 bg-secondary rounded"></div>
+        <div v-if="loading" class="space-y-4">
+          <div v-for="i in 3" :key="i" class="card animate-pulse">
+            <div class="h-6 bg-secondary rounded w-1/3 mb-3"></div>
+            <div class="h-4 bg-secondary rounded w-1/2 mb-2"></div>
+            <div class="h-4 bg-secondary rounded w-2/3"></div>
+          </div>
         </div>
 
-        <div v-else-if="!userStore.profile?.cities?.length" class="card text-center py-8">
+        <div v-else-if="checkinStore.cityVisitArchives.length === 0" class="card text-center py-8">
           <div class="text-5xl mb-4">🌍</div>
           <h3 class="text-lg font-medium text-text-primary mb-2">还没有打卡记录</h3>
           <p class="text-text-secondary mb-4">去打卡你的第一个城市吧</p>
           <router-link to="/checkin" class="btn-primary">开始打卡</router-link>
         </div>
 
-        <div v-else class="card">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div
-              v-for="city in userStore.profile?.cities"
-              :key="city.id"
-              class="aspect-square rounded-xl bg-gradient-to-br from-primary-50 to-secondary flex items-center justify-center"
-            >
-              <div class="text-center">
-                <div class="text-3xl mb-1">📍</div>
-                <div class="font-medium text-text-primary">{{ city.name }}</div>
+        <div v-else class="space-y-4">
+          <div
+            v-for="archive in checkinStore.cityVisitArchives"
+            :key="archive.cityId"
+            class="card overflow-hidden"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md">
+                  <span class="text-2xl">📍</span>
+                </div>
+                <div>
+                  <h3 class="text-lg font-bold text-text-primary">{{ archive.cityName }}</h3>
+                  <p class="text-sm text-text-secondary">
+                    累计到访 <span class="text-primary font-bold">{{ archive.visitCount }}</span> 次
+                  </p>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="badge badge-primary">
+                  第 {{ archive.visitCount }} 次到访
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div class="bg-secondary/50 rounded-lg p-3">
+                <div class="text-xs text-text-secondary mb-1">首次到达</div>
+                <div class="text-sm font-medium text-text-primary">
+                  {{ formatDate(archive.firstVisit) }}
+                </div>
+              </div>
+              <div class="bg-secondary/50 rounded-lg p-3">
+                <div class="text-xs text-text-secondary mb-1">最近一次</div>
+                <div class="text-sm font-medium text-text-primary">
+                  {{ formatDate(archive.lastVisit) }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="archive.locations.length > 0">
+              <div class="text-xs text-text-secondary mb-2">停留地点</div>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="(location, idx) in archive.locations"
+                  :key="idx"
+                  class="px-2.5 py-1 text-xs rounded-full bg-primary-50 text-primary"
+                >
+                  {{ location }}
+                </span>
+              </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-secondary">
+              <div class="text-xs text-text-secondary mb-2">到访记录</div>
+              <div class="space-y-2 max-h-48 overflow-y-auto">
+                <div
+                  v-for="checkin in archive.checkins"
+                  :key="checkin.id"
+                  class="flex items-center justify-between text-sm py-1"
+                >
+                  <div class="flex items-center space-x-2">
+                    <div class="w-2 h-2 rounded-full bg-accent"></div>
+                    <span class="text-text-primary">{{ checkin.location || '未命名地点' }}</span>
+                  </div>
+                  <span class="text-text-secondary text-xs">{{ formatDate(checkin.travelTime) }}</span>
+                </div>
               </div>
             </div>
           </div>

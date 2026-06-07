@@ -99,6 +99,16 @@ export interface CheckinListResponse {
   total: number
 }
 
+export interface CityVisitArchive {
+  cityId: number
+  cityName: string
+  firstVisit: string
+  lastVisit: string
+  visitCount: number
+  locations: string[]
+  checkins: Checkin[]
+}
+
 // 用户档案统计
 export interface UserProfile {
   userId: number

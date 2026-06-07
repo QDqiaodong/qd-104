@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { getCheckinList, createCheckin as apiCreateCheckin, getCities } from '@/api/checkin'
-import type { Checkin, CheckinRequest, City } from '@/types'
+import type { Checkin, CheckinRequest, City, CityVisitArchive } from '@/types'
 import type { CheckinListParams } from '@/api/checkin'
 
 export const useCheckinStore = defineStore('checkin', () => {
@@ -41,11 +41,49 @@ export const useCheckinStore = defineStore('checkin', () => {
     }
   }
 
+  const cityVisitArchives = computed<CityVisitArchive[]>(() => {
+    const cityMap = new Map<number, Checkin[]>()
+
+    for (const checkin of checkins.value) {
+      if (!cityMap.has(checkin.cityId)) {
+        cityMap.set(checkin.cityId, [])
+      }
+      cityMap.get(checkin.cityId)!.push(checkin)
+    }
+
+    const archives: CityVisitArchive[] = []
+
+    for (const [cityId, cityCheckins] of cityMap) {
+      const sortedCheckins = [...cityCheckins].sort(
+        (a, b) => new Date(a.travelTime).getTime() - new Date(b.travelTime).getTime()
+      )
+
+      const firstVisit = sortedCheckins[0].travelTime
+      const lastVisit = sortedCheckins[sortedCheckins.length - 1].travelTime
+      const locations = [...new Set(sortedCheckins.map(c => c.location).filter(Boolean))]
+
+      archives.push({
+        cityId,
+        cityName: sortedCheckins[0].cityName,
+        firstVisit,
+        lastVisit,
+        visitCount: sortedCheckins.length,
+        locations,
+        checkins: sortedCheckins
+      })
+    }
+
+    archives.sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime())
+
+    return archives
+  })
+
   return {
     checkins,
     cities,
     total,
     loading,
+    cityVisitArchives,
     fetchCheckins,
     fetchCities,
     createCheckin
