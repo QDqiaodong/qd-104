@@ -3,7 +3,17 @@ import { ref, onMounted, computed, watch, nextTick, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCheckinStore } from '@/stores/checkin'
 import CitySearchSelect from '@/components/CitySearchSelect.vue'
-import type { Checkin, TravelMethod } from '@/types'
+import type { Checkin, TravelMethod, RevisitInfo } from '@/types'
+import {
+  detectRevisit,
+  getRevisitLabel,
+  getRevisitEmoji,
+  getRevisitDescription,
+  getRevisitColorClass,
+  getRevisitBgColorClass,
+  getRevisitGradientFromClass,
+  getRevisitGradientToClass
+} from '@/utils/revisitDetection'
 
 const route = useRoute()
 
@@ -60,6 +70,25 @@ const yearGroups = computed(() => {
     year: Number(year),
     items
   }))
+})
+
+const formRevisitInfo = computed<RevisitInfo | null>(() => {
+  if (!selectedCityId.value || !location.value || !travelTime.value) {
+    return null
+  }
+  
+  return detectRevisit(
+    {
+      cityId: selectedCityId.value,
+      location: location.value,
+      travelTime: travelTime.value
+    },
+    checkinStore.checkins
+  )
+})
+
+const canShowRevisitHint = computed(() => {
+  return formRevisitInfo.value && formRevisitInfo.value.type !== 'new_city'
 })
 
 async function locateToCheckin() {
@@ -343,6 +372,32 @@ function getTravelStory(checkin: Checkin, index: number) {
   return { text: `时隔${Math.floor(days / 30)}个月`, emoji: '⏰' }
 }
 
+function getCheckinRevisitInfo(checkin: Checkin): RevisitInfo | null {
+  if (checkin.revisitInfo) {
+    return checkin.revisitInfo
+  }
+  
+  const checkinTime = new Date(checkin.travelTime).getTime()
+  const previousCheckins = checkinStore.checkins.filter(c => {
+    if (c.id === checkin.id) return false
+    return new Date(c.travelTime).getTime() < checkinTime
+  })
+  
+  return detectRevisit(
+    {
+      cityId: checkin.cityId,
+      location: checkin.location,
+      travelTime: checkin.travelTime
+    },
+    previousCheckins
+  )
+}
+
+function hasRevisitInfo(checkin: Checkin): boolean {
+  const info = getCheckinRevisitInfo(checkin)
+  return info !== null && info.type !== 'new_city'
+}
+
 function toggleZoom(index: number) {
   if (zoomedCard.value === index) {
     zoomedCard.value = null
@@ -486,6 +541,49 @@ function closeZoom() {
               </div>
             </div>
 
+            <!-- 重访提醒 -->
+            <transition name="fade">
+              <div
+                v-if="canShowRevisitHint && formRevisitInfo"
+                :class="[
+                  'rounded-xl p-4 border-2 transition-all duration-300',
+                  getRevisitBgColorClass(formRevisitInfo.type),
+                  formRevisitInfo.type === 'revisit_location' ? 'border-amber-200' : 'border-sky-200'
+                ]"
+              >
+                <div class="flex items-start space-x-3">
+                  <div 
+                    :class="[
+                      'w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 shadow-md',
+                      getRevisitGradientFromClass(formRevisitInfo.type),
+                      getRevisitGradientToClass(formRevisitInfo.type)
+                    ]"
+                  >
+                    <span class="text-xl">{{ getRevisitEmoji(formRevisitInfo.type) }}</span>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center space-x-2">
+                      <h4 :class="['font-semibold', getRevisitColorClass(formRevisitInfo.type)]">
+                        {{ getRevisitLabel(formRevisitInfo.type) }}
+                      </h4>
+                      <span v-if="formRevisitInfo.totalVisitsInCity" class="text-xs text-text-muted bg-white/60 px-2 py-0.5 rounded-full">
+                        第 {{ formRevisitInfo.totalVisitsInCity }} 次到访
+                      </span>
+                    </div>
+                    <p class="text-sm text-text-secondary mt-1">
+                      {{ getRevisitDescription(formRevisitInfo) }}
+                    </p>
+                    <p v-if="formRevisitInfo.type === 'revisit_location' && formRevisitInfo.matchedLocation" class="text-xs text-text-muted mt-2">
+                      上次打卡：{{ formRevisitInfo.matchedLocation }}
+                    </p>
+                    <p v-if="formRevisitInfo.similarityScore && formRevisitInfo.type === 'revisit_location'" class="text-xs text-text-muted mt-1">
+                      地点相似度：{{ Math.round(formRevisitInfo.similarityScore * 100) }}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </transition>
+
             <!-- 按钮 -->
             <div class="flex justify-end space-x-3 pt-4">
               <button type="button" @click="closeForm" class="btn-secondary">
@@ -543,13 +641,30 @@ function closeZoom() {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between">
-                <div>
+                <div class="flex flex-wrap items-center gap-1">
                   <span class="badge badge-primary mr-2">{{ getCityName(checkin.cityId) }}</span>
                   <span class="badge bg-secondary text-text-secondary">{{ getMethodLabel(checkin.travelMethod) }}</span>
+                  <span
+                    v-if="hasRevisitInfo(checkin)"
+                    :class="[
+                      'badge',
+                      getRevisitBgColorClass(getCheckinRevisitInfo(checkin)!.type),
+                      getRevisitColorClass(getCheckinRevisitInfo(checkin)!.type)
+                    ]"
+                  >
+                    {{ getRevisitEmoji(getCheckinRevisitInfo(checkin)!.type) }}
+                    {{ getRevisitLabel(getCheckinRevisitInfo(checkin)!.type) }}
+                  </span>
                 </div>
                 <span class="text-sm text-text-muted">{{ formatDate(checkin.travelTime) }}</span>
               </div>
               <h3 class="text-lg font-medium text-text-primary mt-2">{{ checkin.location }}</h3>
+              <p
+                v-if="hasRevisitInfo(checkin)"
+                :class="['text-sm mt-1', getRevisitColorClass(getCheckinRevisitInfo(checkin)!.type)]"
+              >
+                {{ getRevisitDescription(getCheckinRevisitInfo(checkin)!) }}
+              </p>
               <p class="text-sm text-text-muted mt-1">
                 {{ formatDate(checkin.createTime) }} 创建
               </p>
@@ -615,9 +730,29 @@ function closeZoom() {
               
               <!-- 放大卡片内容 -->
               <div v-if="scrollCheckins[zoomedCard]" class="p-8">
-                <h2 class="text-3xl font-serif font-bold text-text-primary mb-4">
+                <h2 class="text-3xl font-serif font-bold text-text-primary mb-3">
                   {{ scrollCheckins[zoomedCard].location }}
                 </h2>
+                
+                <!-- 重访信息 -->
+                <div v-if="hasRevisitInfo(scrollCheckins[zoomedCard])" class="mb-4">
+                  <div
+                    :class="[
+                      'inline-flex items-center space-x-2 px-4 py-2 rounded-xl',
+                      getRevisitBgColorClass(getCheckinRevisitInfo(scrollCheckins[zoomedCard])!.type)
+                    ]"
+                  >
+                    <span class="text-xl">{{ getRevisitEmoji(getCheckinRevisitInfo(scrollCheckins[zoomedCard])!.type) }}</span>
+                    <div>
+                      <div :class="['font-semibold', getRevisitColorClass(getCheckinRevisitInfo(scrollCheckins[zoomedCard])!.type)]">
+                        {{ getRevisitLabel(getCheckinRevisitInfo(scrollCheckins[zoomedCard])!.type) }}
+                      </div>
+                      <div class="text-xs text-text-secondary">
+                        {{ getRevisitDescription(getCheckinRevisitInfo(scrollCheckins[zoomedCard])!) }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 
                 <div class="bg-gradient-to-r from-primary-50 to-accent-50 rounded-2xl p-6 mb-6">
                   <p class="text-xl text-text-secondary italic leading-relaxed">
@@ -834,9 +969,26 @@ function closeZoom() {
                         </div>
 
                         <!-- 地点 -->
-                        <h3 class="text-2xl font-serif font-bold text-text-primary mb-4 leading-tight">
+                        <h3 class="text-2xl font-serif font-bold text-text-primary mb-2 leading-tight">
                           {{ checkin.location }}
                         </h3>
+
+                        <!-- 重访标签 -->
+                        <div v-if="hasRevisitInfo(checkin)" class="mb-4">
+                          <span
+                            :class="[
+                              'inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium',
+                              getRevisitBgColorClass(getCheckinRevisitInfo(checkin)!.type),
+                              getRevisitColorClass(getCheckinRevisitInfo(checkin)!.type)
+                            ]"
+                          >
+                            <span>{{ getRevisitEmoji(getCheckinRevisitInfo(checkin)!.type) }}</span>
+                            <span>{{ getRevisitLabel(getCheckinRevisitInfo(checkin)!.type) }}</span>
+                          </span>
+                          <p :class="['text-xs mt-1.5', getRevisitColorClass(getCheckinRevisitInfo(checkin)!.type)]">
+                            {{ getRevisitDescription(getCheckinRevisitInfo(checkin)!) }}
+                          </p>
+                        </div>
 
                         <!-- 诗意短句 -->
                         <div class="relative">

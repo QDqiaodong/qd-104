@@ -76,6 +76,18 @@ export interface PublishJournalRequest {
 // 打卡相关
 export type TravelMethod = 'plane' | 'train' | 'car' | 'walk' | 'other'
 
+export type RevisitType = 'revisit_location' | 'same_city_new' | 'new_city'
+
+export interface RevisitInfo {
+  type: RevisitType
+  matchedCheckinId?: number
+  matchedLocation?: string
+  matchedCityName?: string
+  daysSinceLastVisit?: number
+  totalVisitsInCity?: number
+  similarityScore?: number
+}
+
 export interface Checkin {
   id: number
   userId: number
@@ -85,6 +97,14 @@ export interface Checkin {
   travelTime: string
   travelMethod: TravelMethod
   createTime: string
+  revisitInfo?: RevisitInfo
+}
+
+export interface LocationMatchResult {
+  isMatch: boolean
+  similarity: number
+  matchedCheckin?: Checkin
+  daysSinceLastVisit?: number
 }
 
 export interface CheckinRequest {

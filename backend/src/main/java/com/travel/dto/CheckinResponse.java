@@ -16,4 +16,5 @@ public class CheckinResponse {
     private String travelTime;
     private String travelMethod;
     private String createTime;
+    private RevisitInfo revisitInfo;
 }
