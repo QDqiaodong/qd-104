@@ -9,4 +9,5 @@ public class JournalRequest {
     private String content;
     private List<String> images;
     private Long cityId;
+    private List<Long> checkinIds;
 }

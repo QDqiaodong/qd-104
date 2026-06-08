@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useJournalStore } from '@/stores/journal'
 import { useAuthStore } from '@/stores/auth'
 import { collectJournal, cancelCollect } from '@/api/journal'
-import type { Journal } from '@/types'
+import type { Journal, Checkin } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,7 +102,49 @@ const mockJournal: Journal = {
   likeCount: 128,
   collectCount: 45,
   isLiked: false,
-  isCollected: false
+  isCollected: false,
+  checkins: [
+    {
+      id: 1,
+      userId: 1,
+      cityId: 3,
+      cityName: '杭州市',
+      location: '断桥残雪',
+      travelTime: '2024-03-15 08:30:00',
+      travelMethod: 'walk',
+      createTime: '2024-03-15 09:00:00'
+    },
+    {
+      id: 2,
+      userId: 1,
+      cityId: 3,
+      cityName: '杭州市',
+      location: '苏堤春晓',
+      travelTime: '2024-03-15 10:00:00',
+      travelMethod: 'walk',
+      createTime: '2024-03-15 10:30:00'
+    },
+    {
+      id: 3,
+      userId: 1,
+      cityId: 3,
+      cityName: '杭州市',
+      location: '三潭印月',
+      travelTime: '2024-03-15 14:00:00',
+      travelMethod: 'other',
+      createTime: '2024-03-15 14:30:00'
+    },
+    {
+      id: 4,
+      userId: 1,
+      cityId: 3,
+      cityName: '杭州市',
+      location: '雷峰夕照',
+      travelTime: '2024-03-15 17:30:00',
+      travelMethod: 'car',
+      createTime: '2024-03-15 18:00:00'
+    }
+  ]
 }
 
 onMounted(async () => {
@@ -193,6 +235,49 @@ function handleScroll() {
     }
   }
 }
+
+const hasCheckins = computed(() => {
+  return journal.value?.checkins && journal.value.checkins.length > 0
+})
+
+const sortedCheckins = computed(() => {
+  if (!journal.value?.checkins) return []
+  return [...journal.value.checkins].sort(
+    (a, b) => new Date(a.travelTime).getTime() - new Date(b.travelTime).getTime()
+  )
+})
+
+function formatCheckinDate(time: string) {
+  const date = new Date(time)
+  return date.toLocaleDateString('zh-CN', {
+    month: 'long',
+    day: 'numeric'
+  })
+}
+
+function formatCheckinTime(time: string) {
+  const date = new Date(time)
+  return date.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const travelMethodLabels: Record<string, { label: string; icon: string }> = {
+  plane: { label: '飞机', icon: '✈️' },
+  train: { label: '火车', icon: '🚆' },
+  car: { label: '自驾', icon: '🚗' },
+  walk: { label: '步行', icon: '🚶' },
+  other: { label: '其他', icon: '📍' }
+}
+
+function getTravelMethodIcon(method: string) {
+  return travelMethodLabels[method]?.icon || '📍'
+}
+
+function getTravelMethodLabel(method: string) {
+  return travelMethodLabels[method]?.label || method
+}
 </script>
 
 <template>
@@ -232,7 +317,7 @@ function handleScroll() {
               <h1 class="text-3xl md:text-4xl font-serif font-bold text-text-primary mb-6">
                 {{ journal.title }}
               </h1>
-              <div class="flex items-center justify-between flex-wrap gap-4">
+              <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
                 <div class="flex items-center space-x-3">
                   <div class="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
                     <span class="text-primary font-medium text-lg">{{ journal.authorName[0] }}</span>
@@ -252,6 +337,48 @@ function handleScroll() {
                   </svg>
                   照片导航
                 </button>
+              </div>
+
+              <!-- 足迹链路概览 -->
+              <div v-if="hasCheckins" class="bg-gradient-to-r from-primary/5 to-accent/5 rounded-2xl p-5 border border-primary/10">
+                <div class="flex items-center gap-2 mb-4">
+                  <span class="text-xl">📍</span>
+                  <h3 class="font-serif font-semibold text-text-primary">本次旅行足迹</h3>
+                  <span class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                    {{ sortedCheckins.length }} 个地点
+                  </span>
+                </div>
+                <div class="relative">
+                  <div class="absolute left-3 top-1/2 -translate-y-1/2 w-[calc(100%-1.5rem)] h-0.5 bg-gradient-to-r from-primary/40 via-primary/20 to-primary/10"></div>
+                  <div class="flex items-center justify-between relative">
+                    <div
+                      v-for="(checkin, index) in sortedCheckins.slice(0, 5)"
+                      :key="checkin.id"
+                      class="flex flex-col items-center"
+                    >
+                      <div
+                        :class="[
+                          'w-3 h-3 rounded-full border-2 border-white shadow-md z-10',
+                          index === 0 ? 'bg-primary' : 'bg-primary/60'
+                        ]"
+                      ></div>
+                      <div class="mt-2 text-center">
+                        <p class="text-xs font-medium text-text-primary line-clamp-1 max-w-[80px]">
+                          {{ checkin.location }}
+                        </p>
+                        <p class="text-[10px] text-text-muted mt-0.5">
+                          {{ formatCheckinDate(checkin.travelTime) }}
+                        </p>
+                      </div>
+                    </div>
+                    <div v-if="sortedCheckins.length > 5" class="flex flex-col items-center">
+                      <div class="w-3 h-3 rounded-full bg-primary/30 border-2 border-white shadow-md z-10"></div>
+                      <div class="mt-2 text-center">
+                        <p class="text-xs text-text-muted">+{{ sortedCheckins.length - 5 }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </header>
 
@@ -329,13 +456,57 @@ function handleScroll() {
           </section>
         </div>
 
-        <!-- 照片导航侧边栏 -->
+        <!-- 侧边栏 -->
         <aside
           :class="[
-            'hidden lg:block w-64 flex-shrink-0',
+            'hidden lg:block w-64 flex-shrink-0 space-y-6',
             'lg:sticky lg:top-8 lg:self-start lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto'
           ]"
         >
+          <!-- 足迹链路卡片 -->
+          <div v-if="hasCheckins" class="card">
+            <h3 class="font-serif font-semibold text-text-primary mb-4 flex items-center gap-2">
+              <span class="text-lg">📍</span>
+              足迹链路
+            </h3>
+            <p class="text-xs text-text-muted mb-4">这篇游记对应的真实旅行足迹</p>
+            <div class="relative">
+              <div class="absolute left-3.5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-primary/50 via-primary/30 to-primary/10"></div>
+              <div class="space-y-4">
+                <div
+                  v-for="(checkin, index) in sortedCheckins"
+                  :key="checkin.id"
+                  class="relative pl-10"
+                >
+                  <div
+                    :class="[
+                      'absolute left-2 top-1 w-3 h-3 rounded-full border-2 border-white shadow-md',
+                      index === 0 ? 'bg-primary' : 'bg-primary/50'
+                    ]"
+                  ></div>
+                  <div class="bg-warm-bg rounded-lg p-3">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-base">{{ getTravelMethodIcon(checkin.travelMethod) }}</span>
+                      <span class="font-medium text-text-primary text-sm">{{ checkin.location }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-text-muted">
+                      <span>{{ formatCheckinDate(checkin.travelTime) }}</span>
+                      <span>·</span>
+                      <span>{{ getTravelMethodLabel(checkin.travelMethod) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-warm-border">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-text-muted">共 {{ sortedCheckins.length }} 个地点</span>
+                <span class="text-primary font-medium">真实足迹</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 照片导航 -->
           <div class="card">
             <h3 class="font-serif font-semibold text-text-primary mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -66,3 +66,14 @@ CREATE TABLE IF NOT EXISTS wishlist (
     FOREIGN KEY (user_id) REFERENCES user(id),
     FOREIGN KEY (city_id) REFERENCES city(id)
 );
+
+-- 游记-打卡关联表
+CREATE TABLE IF NOT EXISTS journal_checkin (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    journal_id INTEGER NOT NULL,
+    checkin_id INTEGER NOT NULL,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (journal_id) REFERENCES journal(id),
+    FOREIGN KEY (checkin_id) REFERENCES checkin(id),
+    UNIQUE (journal_id, checkin_id)
+);

@@ -50,6 +50,7 @@ export interface Journal {
   collectCount: number
   isLiked?: boolean
   isCollected?: boolean
+  checkins?: Checkin[]
 }
 
 export interface JournalListRequest {
@@ -71,6 +72,7 @@ export interface PublishJournalRequest {
   content: string
   images: string[]
   cityId: number
+  checkinIds?: number[]
 }
 
 // 打卡相关

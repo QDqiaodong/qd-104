@@ -20,4 +20,5 @@ public class JournalResponse {
     private String createTime;
     private Integer likeCount;
     private Integer collectCount;
+    private List<CheckinResponse> checkins;
 }

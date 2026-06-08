@@ -5,7 +5,7 @@ import { useJournalStore } from '@/stores/journal'
 import { useCheckinStore } from '@/stores/checkin'
 import CitySearchSelect from '@/components/CitySearchSelect.vue'
 import imageCompression from 'browser-image-compression'
-import type { CollageStyle, CollageStyleConfig } from '@/types'
+import type { CollageStyle, CollageStyleConfig, Checkin } from '@/types'
 
 const router = useRouter()
 const journalStore = useJournalStore()
@@ -18,6 +18,9 @@ const images = ref<string[]>([])
 const uploading = ref(false)
 const loading = ref(false)
 const error = ref('')
+const selectedCheckinIds = ref<number[]>([])
+const showCheckinPicker = ref(false)
+const loadingCheckins = ref(false)
 
 const showCollagePreview = ref(false)
 const selectedCollageStyle = ref<CollageStyle>('postcard')
@@ -99,6 +102,84 @@ watch([title, cityName], ([newTitle, newCity]) => {
   }
 })
 
+const availableCheckins = computed(() => {
+  if (!selectedCityId.value) return []
+  return checkinStore.checkins.filter(c => c.cityId === selectedCityId.value)
+})
+
+const selectedCheckins = computed(() => {
+  return checkinStore.checkins.filter(c => selectedCheckinIds.value.includes(c.id))
+})
+
+const sortedCheckinsByCity = computed(() => {
+  const cityMap = new Map<number, { cityId: number; cityName: string; checkins: Checkin[] }>()
+  for (const checkin of checkinStore.checkins) {
+    if (!cityMap.has(checkin.cityId)) {
+      cityMap.set(checkin.cityId, {
+        cityId: checkin.cityId,
+        cityName: checkin.cityName,
+        checkins: []
+      })
+    }
+    cityMap.get(checkin.cityId)!.checkins.push(checkin)
+  }
+  return Array.from(cityMap.values()).sort((a, b) => b.checkins.length - a.checkins.length)
+})
+
+function toggleCheckin(checkinId: number) {
+  const index = selectedCheckinIds.value.indexOf(checkinId)
+  if (index > -1) {
+    selectedCheckinIds.value.splice(index, 1)
+  } else {
+    selectedCheckinIds.value.push(checkinId)
+  }
+}
+
+function isCheckinSelected(checkinId: number) {
+  return selectedCheckinIds.value.includes(checkinId)
+}
+
+function formatTravelTime(time: string) {
+  const date = new Date(time)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+}
+
+const travelMethodLabels: Record<string, { label: string; icon: string }> = {
+  plane: { label: '飞机', icon: '✈️' },
+  train: { label: '火车', icon: '🚆' },
+  car: { label: '自驾', icon: '🚗' },
+  walk: { label: '步行', icon: '🚶' },
+  other: { label: '其他', icon: '📍' }
+}
+
+function getTravelMethodLabel(method: string) {
+  return travelMethodLabels[method]?.label || method
+}
+
+function getTravelMethodIcon(method: string) {
+  return travelMethodLabels[method]?.icon || '📍'
+}
+
+async function openCheckinPicker() {
+  if (checkinStore.checkins.length === 0) {
+    loadingCheckins.value = true
+    try {
+      await checkinStore.fetchCheckins()
+    } finally {
+      loadingCheckins.value = false
+    }
+  }
+  showCheckinPicker.value = true
+}
+
+function closeCheckinPicker() {
+  showCheckinPicker.value = false
+}
+
 onMounted(async () => {
   await checkinStore.fetchCities()
 })
@@ -177,7 +258,8 @@ async function handleSubmit() {
       title: title.value,
       content: content.value,
       images: images.value,
-      cityId: selectedCityId.value
+      cityId: selectedCityId.value,
+      checkinIds: selectedCheckinIds.value.length > 0 ? selectedCheckinIds.value : undefined
     })
     router.push('/')
   } catch (e) {
@@ -529,6 +611,51 @@ async function handleSubmit() {
 
           <div>
             <label class="block text-sm font-medium text-text-primary mb-2">
+              关联打卡足迹
+              <span class="text-text-muted font-normal ml-2">
+                关联后，游记会展示你走过的真实地点链路
+              </span>
+            </label>
+            <button
+              type="button"
+              @click="openCheckinPicker"
+              class="w-full p-4 border-2 border-dashed border-warm-border rounded-xl hover:border-primary transition-colors text-left"
+            >
+              <div v-if="selectedCheckins.length === 0" class="flex items-center justify-center text-text-muted">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>点击选择要关联的打卡记录</span>
+              </div>
+              <div v-else class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-medium text-text-primary">
+                    已关联 {{ selectedCheckins.length }} 个打卡地点
+                  </span>
+                  <span class="text-primary text-sm">点击管理</span>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    v-for="checkin in selectedCheckins.slice(0, 5)"
+                    :key="checkin.id"
+                    class="inline-flex items-center px-2.5 py-1 bg-primary/10 text-primary text-xs rounded-full"
+                  >
+                    <span class="mr-1">{{ getTravelMethodIcon(checkin.travelMethod) }}</span>
+                    <span class="truncate max-w-[120px]">{{ checkin.location }}</span>
+                  </span>
+                  <span
+                    v-if="selectedCheckins.length > 5"
+                    class="inline-flex items-center px-2.5 py-1 bg-secondary text-text-muted text-xs rounded-full"
+                  >
+                    +{{ selectedCheckins.length - 5 }} 个
+                  </span>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-text-primary mb-2">
               添加照片
               <span v-if="images.length > 0" class="text-primary ml-2">({{ images.length }}张)</span>
             </label>
@@ -607,5 +734,133 @@ async function handleSubmit() {
         </form>
       </div>
     </div>
+
+    <!-- 打卡选择器弹窗 -->
+    <Teleport to="body">
+      <div
+        v-if="showCheckinPicker"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          @click="closeCheckinPicker"
+        ></div>
+        <div class="relative bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl mx-4">
+          <div class="sticky top-0 bg-white border-b border-warm-border px-6 py-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xl font-serif font-semibold text-text-primary flex items-center gap-2">
+                <span>📍</span>
+                选择关联的打卡记录
+              </h3>
+              <button
+                @click="closeCheckinPicker"
+                class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-warm-bg transition-colors"
+              >
+                <svg class="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p class="text-sm text-text-muted mt-1">
+              选择你这次旅行中走过的打卡地点，游记会按时间顺序展示真实的足迹链路
+            </p>
+          </div>
+
+          <div class="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
+            <div v-if="loadingCheckins" class="flex flex-col items-center justify-center py-12">
+              <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p class="text-text-muted">加载打卡记录中...</p>
+            </div>
+
+            <div v-else-if="checkinStore.checkins.length === 0" class="text-center py-12">
+              <div class="text-5xl mb-4">📝</div>
+              <p class="text-text-primary font-medium mb-2">还没有打卡记录</p>
+              <p class="text-text-muted text-sm">先去打卡记录你的足迹吧~</p>
+            </div>
+
+            <div v-else class="space-y-6">
+              <div
+                v-for="cityGroup in sortedCheckinsByCity"
+                :key="cityGroup.cityId"
+                class="space-y-3"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🏙️</span>
+                  <h4 class="font-medium text-text-primary">{{ cityGroup.cityName }}</h4>
+                  <span class="text-xs text-text-muted bg-secondary px-2 py-0.5 rounded-full">
+                    {{ cityGroup.checkins.length }} 个打卡
+                  </span>
+                </div>
+                <div class="space-y-2 pl-2">
+                  <div
+                    v-for="checkin in cityGroup.checkins"
+                    :key="checkin.id"
+                    @click="toggleCheckin(checkin.id)"
+                    :class="[
+                      'p-4 rounded-xl border-2 cursor-pointer transition-all duration-200',
+                      'flex items-start gap-3',
+                      isCheckinSelected(checkin.id)
+                        ? 'border-primary bg-primary/5 shadow-md'
+                        : 'border-warm-border hover:border-primary/50 hover:bg-primary/5'
+                    ]"
+                  >
+                    <div
+                      :class="[
+                        'w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center mt-0.5 transition-colors',
+                        isCheckinSelected(checkin.id)
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-gray-300'
+                      ]"
+                    >
+                      <svg v-if="isCheckinSelected(checkin.id)" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-lg">{{ getTravelMethodIcon(checkin.travelMethod) }}</span>
+                        <span class="font-medium text-text-primary">{{ checkin.location }}</span>
+                      </div>
+                      <div class="flex items-center gap-3 text-sm text-text-muted">
+                        <span class="flex items-center gap-1">
+                          <span>📅</span>
+                          {{ formatTravelTime(checkin.travelTime) }}
+                        </span>
+                        <span class="flex items-center gap-1">
+                          <span>🚀</span>
+                          {{ getTravelMethodLabel(checkin.travelMethod) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sticky bottom-0 bg-white border-t border-warm-border px-6 py-4">
+            <div class="flex items-center justify-between">
+              <div class="text-sm text-text-muted">
+                已选择 <span class="text-primary font-medium">{{ selectedCheckinIds.length }}</span> 个打卡
+              </div>
+              <div class="flex gap-3">
+                <button
+                  @click="selectedCheckinIds = []"
+                  class="px-4 py-2 text-text-secondary hover:text-primary transition-colors"
+                >
+                  清空选择
+                </button>
+                <button
+                  @click="closeCheckinPicker"
+                  class="btn-primary"
+                >
+                  确定
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

@@ -14,6 +14,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,6 +32,12 @@ public class JournalServiceImpl implements JournalService {
 
     @Autowired
     private CollectionRepository collectionRepository;
+
+    @Autowired
+    private CheckinRepository checkinRepository;
+
+    @Autowired
+    private JournalCheckinRepository journalCheckinRepository;
 
     @Autowired
     private CommonMapper commonMapper;
@@ -83,6 +90,19 @@ public class JournalServiceImpl implements JournalService {
         
         Long journalId = commonMapper.getLastInsertId();
         journal.setId(journalId);
+
+        if (request.getCheckinIds() != null && !request.getCheckinIds().isEmpty()) {
+            for (Long checkinId : request.getCheckinIds()) {
+                Checkin checkin = checkinRepository.selectById(checkinId);
+                if (checkin != null && checkin.getUserId().equals(authorId)) {
+                    JournalCheckin journalCheckin = new JournalCheckin();
+                    journalCheckin.setJournalId(journalId);
+                    journalCheckin.setCheckinId(checkinId);
+                    journalCheckin.setCreateTime(LocalDateTime.now());
+                    journalCheckinRepository.insert(journalCheckin);
+                }
+            }
+        }
 
         return convertToResponse(journal);
     }
@@ -165,18 +185,59 @@ public class JournalServiceImpl implements JournalService {
 
         List<String> images = ImageListSerializer.deserialize(journal.getImages());
 
-        return new JournalResponse(
-                journal.getId(),
-                journal.getTitle(),
-                journal.getContent(),
-                images,
-                journal.getCityId(),
-                city != null ? city.getName() : "",
-                journal.getAuthorId(),
-                author != null ? author.getNickname() : "",
-                journal.getCreateTime().format(FORMATTER),
-                journal.getLikeCount(),
-                journal.getCollectCount()
-        );
+        List<CheckinResponse> checkins = getJournalCheckins(journal.getId());
+
+        JournalResponse response = new JournalResponse();
+        response.setId(journal.getId());
+        response.setTitle(journal.getTitle());
+        response.setContent(journal.getContent());
+        response.setImages(images);
+        response.setCityId(journal.getCityId());
+        response.setCityName(city != null ? city.getName() : "");
+        response.setAuthorId(journal.getAuthorId());
+        response.setAuthorName(author != null ? author.getNickname() : "");
+        response.setCreateTime(journal.getCreateTime().format(FORMATTER));
+        response.setLikeCount(journal.getLikeCount());
+        response.setCollectCount(journal.getCollectCount());
+        response.setCheckins(checkins);
+        return response;
+    }
+
+    private List<CheckinResponse> getJournalCheckins(Long journalId) {
+        QueryWrapper<JournalCheckin> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("journal_id", journalId);
+        List<JournalCheckin> journalCheckins = journalCheckinRepository.selectList(queryWrapper);
+
+        if (journalCheckins.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Long> checkinIds = journalCheckins.stream()
+                .map(JournalCheckin::getCheckinId)
+                .collect(Collectors.toList());
+
+        QueryWrapper<Checkin> checkinQueryWrapper = new QueryWrapper<>();
+        checkinQueryWrapper.in("id", checkinIds);
+        List<Checkin> checkins = checkinRepository.selectList(checkinQueryWrapper);
+
+        return checkins.stream()
+                .map(this::convertCheckinToResponse)
+                .sorted(Comparator.comparing(CheckinResponse::getTravelTime))
+                .collect(Collectors.toList());
+    }
+
+    private CheckinResponse convertCheckinToResponse(Checkin checkin) {
+        City city = cityRepository.selectById(checkin.getCityId());
+
+        CheckinResponse response = new CheckinResponse();
+        response.setId(checkin.getId());
+        response.setUserId(checkin.getUserId());
+        response.setCityId(checkin.getCityId());
+        response.setCityName(city != null ? city.getName() : "");
+        response.setLocation(checkin.getLocation());
+        response.setTravelTime(checkin.getTravelTime().format(FORMATTER));
+        response.setTravelMethod(checkin.getTravelMethod());
+        response.setCreateTime(checkin.getCreateTime().format(FORMATTER));
+        return response;
     }
 }
