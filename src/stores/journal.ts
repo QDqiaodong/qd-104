@@ -56,6 +56,12 @@ export const useJournalStore = defineStore('journal', () => {
     total.value--
   }
 
+  function reset() {
+    journals.value = []
+    currentJournal.value = null
+    total.value = 0
+  }
+
   return {
     journals,
     currentJournal,
@@ -64,6 +70,7 @@ export const useJournalStore = defineStore('journal', () => {
     fetchJournals,
     fetchJournalDetail,
     createJournal,
-    removeJournal
+    removeJournal,
+    reset
   }
 })

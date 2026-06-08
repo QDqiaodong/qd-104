@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
 
   const isLoggedIn = computed(() => !!token.value)
+  const currentUserId = computed<number | null>(() => user.value?.id ?? null)
 
   async function login(data: LoginRequest) {
     loading.value = true
@@ -67,6 +68,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     loading,
     isLoggedIn,
+    currentUserId,
     login,
     register,
     fetchCurrentUser,

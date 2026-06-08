@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCityMemorialStore } from '@/stores/cityMemorial'
 import { useCheckinStore } from '@/stores/checkin'
@@ -21,20 +21,27 @@ const memorialPage = computed<CityMemorialPageType | null>(() => {
   return cityMemorialStore.getMemorialPage(cityId.value) || null
 })
 
-onMounted(async () => {
+const hasUserData = computed(() => {
+  return authStore.currentUserId != null
+})
+
+async function loadAllData() {
+  loading.value = true
   try {
     if (authStore.isLoggedIn && !authStore.user) {
       await authStore.fetchCurrentUser()
     }
 
+    if (!authStore.isLoggedIn) {
+      return
+    }
+
     await Promise.all([
       checkinStore.fetchCities(),
       checkinStore.fetchCheckins(),
-      journalStore.fetchJournals({ page: 1, pageSize: 100 })
+      journalStore.fetchJournals({ page: 1, pageSize: 200 })
     ])
-    
-    cityMemorialStore.ensureMemorialPage(cityId.value)
-    
+
     if (memorialPage.value?.isNewlyUnlocked) {
       setTimeout(() => {
         cityMemorialStore.clearNewlyUnlocked()
@@ -43,13 +50,17 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  loadAllData()
 })
 
 watch(
-  () => authStore.user?.id,
-  () => {
-    if (authStore.user?.id != null && checkinStore.checkins.length > 0) {
-      cityMemorialStore.ensureMemorialPage(cityId.value)
+  () => authStore.currentUserId,
+  (newUserId, oldUserId) => {
+    if (newUserId != null && newUserId !== oldUserId) {
+      loadAllData()
     }
   }
 )

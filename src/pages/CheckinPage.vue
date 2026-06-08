@@ -268,9 +268,11 @@ async function handleSubmit() {
     })
 
     if (wasNewCity) {
+      const cityName = checkinStore.cities.find(c => c.id === selectedCityId.value)?.name || '新城市'
       newlyUnlockedCityId.value = selectedCityId.value
-      newlyUnlockedCityName.value = checkinStore.cities.find(c => c.id === selectedCityId.value)?.name || '新城市'
+      newlyUnlockedCityName.value = cityName
       showUnlockModal.value = true
+      cityMemorialStore.triggerUnlockAnimation(selectedCityId.value, cityName)
     }
 
     closeForm()

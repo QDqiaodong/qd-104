@@ -14,13 +14,15 @@ const TRAVEL_METHOD_CONFIG: { value: TravelMethod; label: string; icon: string }
 ]
 
 export const useCityMemorialStore = defineStore('cityMemorial', () => {
-  const memorialPages = ref<CityMemorialPage[]>([])
   const newlyUnlockedCityId = ref<number | null>(null)
-  const currentUserId = ref<number | null>(null)
+  const newlyUnlockedCityName = ref<string>('')
+  const showUnlockAnimation = ref(false)
 
   const checkinStore = useCheckinStore()
   const journalStore = useJournalStore()
   const authStore = useAuthStore()
+
+  const currentUserId = computed(() => authStore.user?.id ?? null)
 
   function getMethodConfig(method: TravelMethod) {
     return TRAVEL_METHOD_CONFIG.find(m => m.value === method) || TRAVEL_METHOD_CONFIG[TRAVEL_METHOD_CONFIG.length - 1]
@@ -59,13 +61,11 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
 
   function getRepresentativePhotos(journals: Journal[]): string[] {
     const photos: string[] = []
-
     for (const journal of journals) {
       if (journal.images && journal.images.length > 0) {
         photos.push(...journal.images)
       }
     }
-
     return photos.slice(0, 9)
   }
 
@@ -73,164 +73,132 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
     return checkinStore.cities.find(c => c.id === cityId)
   }
 
-  function getCurrentUserId(): number | null {
-    return authStore.user?.id || null
-  }
+  const myJournals = computed(() => {
+    const userId = currentUserId.value
+    if (userId == null) return []
+    return journalStore.journals.filter(j => j.authorId === userId)
+  })
 
-  function isCurrentUserLoaded(): boolean {
-    return authStore.user !== null && authStore.user.id !== undefined
-  }
+  const cityIds = computed(() => {
+    const ids = new Set(checkinStore.checkins.map(c => c.cityId))
+    return Array.from(ids)
+  })
 
-  function generateMemorialPage(cityId: number, isNew: boolean = false): CityMemorialPage | null {
-    const cityCheckins = checkinStore.checkins.filter(c => c.cityId === cityId)
-    if (cityCheckins.length === 0) return null
+  const memorialPages = computed<CityMemorialPage[]>(() => {
+    const userId = currentUserId.value
+    if (userId == null) return []
+    if (checkinStore.checkins.length === 0) return []
 
-    const city = getCityById(cityId)
-    const sortedCheckins = [...cityCheckins].sort(
-      (a, b) => new Date(a.travelTime).getTime() - new Date(b.travelTime).getTime()
-    )
-
-    const userId = getCurrentUserId()
-    const myJournals = userId
-      ? journalStore.journals.filter(j => j.authorId === userId && j.cityId === cityId)
-      : []
-
-    const firstVisit = sortedCheckins[0].travelTime
-    const lastVisit = sortedCheckins[sortedCheckins.length - 1].travelTime
-    const locations = [...new Set(sortedCheckins.map(c => c.location).filter(Boolean))]
-    const travelMethods = getTravelMethodStats(sortedCheckins)
-    const primaryTravelMethod = travelMethods.length > 0 ? travelMethods[0].method : undefined
-    const representativePhotos = getRepresentativePhotos(myJournals)
-
-    return {
-      cityId,
-      cityName: sortedCheckins[0].cityName,
-      cityProvince: city?.province || '',
-      cityDescription: city?.description,
-      firstVisit,
-      lastVisit,
-      visitCount: sortedCheckins.length,
-      totalDays: calculateTotalDays(sortedCheckins),
-      journals: myJournals,
-      journalCount: myJournals.length,
-      representativePhotos,
-      travelMethods,
-      primaryTravelMethod,
-      locations,
-      checkins: sortedCheckins,
-      createTime: firstVisit,
-      isNewlyUnlocked: isNew
+    const cityMap = new Map<number, Checkin[]>()
+    for (const checkin of checkinStore.checkins) {
+      if (!cityMap.has(checkin.cityId)) {
+        cityMap.set(checkin.cityId, [])
+      }
+      cityMap.get(checkin.cityId)!.push(checkin)
     }
-  }
 
-  function generateAllMemorialPages() {
-    const cityIds = [...new Set(checkinStore.checkins.map(c => c.cityId))]
     const pages: CityMemorialPage[] = []
 
-    for (const cityId of cityIds) {
-      const page = generateMemorialPage(cityId, false)
-      if (page) {
-        pages.push(page)
-      }
+    for (const [cityId, cityCheckins] of cityMap) {
+      const sortedCheckins = [...cityCheckins].sort(
+        (a, b) => new Date(a.travelTime).getTime() - new Date(b.travelTime).getTime()
+      )
+
+      const city = getCityById(cityId)
+      const cityJournals = myJournals.value.filter(j => j.cityId === cityId)
+      const firstVisit = sortedCheckins[0].travelTime
+      const lastVisit = sortedCheckins[sortedCheckins.length - 1].travelTime
+      const locations = [...new Set(sortedCheckins.map(c => c.location).filter(Boolean))]
+      const travelMethods = getTravelMethodStats(sortedCheckins)
+      const primaryTravelMethod = travelMethods.length > 0 ? travelMethods[0].method : undefined
+      const representativePhotos = getRepresentativePhotos(cityJournals)
+
+      pages.push({
+        cityId,
+        cityName: sortedCheckins[0].cityName,
+        cityProvince: city?.province || '',
+        cityDescription: city?.description,
+        firstVisit,
+        lastVisit,
+        visitCount: sortedCheckins.length,
+        totalDays: calculateTotalDays(sortedCheckins),
+        journals: cityJournals,
+        journalCount: cityJournals.length,
+        representativePhotos,
+        travelMethods,
+        primaryTravelMethod,
+        locations,
+        checkins: sortedCheckins,
+        createTime: firstVisit,
+        isNewlyUnlocked: newlyUnlockedCityId.value === cityId
+      })
     }
 
-    pages.sort((a, b) => new Date(b.firstVisit).getTime() - new Date(a.firstVisit).getTime())
-    memorialPages.value = pages
-  }
+    pages.sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime())
+    return pages
+  })
 
-  function checkForNewCity(previousCheckinCount: number, currentCheckinCount: number) {
-    if (currentCheckinCount <= previousCheckinCount) return
-
-    const previousCityIds = new Set(
-      checkinStore.checkins.slice(0, previousCheckinCount).map(c => c.cityId)
-    )
-    const currentCityIds = new Set(checkinStore.checkins.map(c => c.cityId))
-
-    for (const cityId of currentCityIds) {
-      if (!previousCityIds.has(cityId)) {
-        newlyUnlockedCityId.value = cityId
-        const newPage = generateMemorialPage(cityId, true)
-        if (newPage) {
-          memorialPages.value.unshift(newPage)
-        }
-        break
-      }
-    }
-  }
+  const sortedPages = computed(() => memorialPages.value)
 
   function getMemorialPage(cityId: number): CityMemorialPage | undefined {
     return memorialPages.value.find(p => p.cityId === cityId)
   }
 
+  function ensureMemorialPage(cityId: number): CityMemorialPage | null {
+    return getMemorialPage(cityId) || null
+  }
+
   function clearNewlyUnlocked() {
     newlyUnlockedCityId.value = null
-    for (const page of memorialPages.value) {
-      page.isNewlyUnlocked = false
-    }
+    newlyUnlockedCityName.value = ''
+    showUnlockAnimation.value = false
   }
 
-  function ensureMemorialPage(cityId: number): CityMemorialPage | null {
-    let page = getMemorialPage(cityId)
-    if (!page) {
-      page = generateMemorialPage(cityId, false)
-      if (page) {
-        memorialPages.value.push(page)
-      }
-    }
-    return page || null
+  function triggerUnlockAnimation(cityId: number, cityName: string) {
+    newlyUnlockedCityId.value = cityId
+    newlyUnlockedCityName.value = cityName
+    showUnlockAnimation.value = true
   }
 
-  function resetMemorialPages() {
-    memorialPages.value = []
-    newlyUnlockedCityId.value = null
-    previousCheckinCount = 0
-    currentUserId.value = getCurrentUserId()
-  }
-
-  const sortedPages = computed(() => {
-    return [...memorialPages.value].sort(
-      (a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
-    )
-  })
-
-  let previousCheckinCount = 0
+  let previousCityCount = 0
 
   watch(
-    () => authStore.user?.id,
-    (newUserId, oldUserId) => {
-      if (newUserId !== oldUserId) {
-        resetMemorialPages()
-        if (newUserId != null && checkinStore.checkins.length > 0) {
-          generateAllMemorialPages()
+    () => cityIds.value.length,
+    (newCount) => {
+      const userId = currentUserId.value
+      if (userId == null) {
+        previousCityCount = 0
+        return
+      }
+
+      if (newCount > previousCityCount && previousCityCount > 0) {
+        const oldCityIds = new Set(
+          checkinStore.checkins
+            .slice(0, checkinStore.checkins.length - (newCount - previousCityCount))
+            .map(c => c.cityId)
+        )
+        
+        for (const id of cityIds.value) {
+          if (!oldCityIds.has(id)) {
+            const cityName = getCityById(id)?.name || '新城市'
+            triggerUnlockAnimation(id, cityName)
+            break
+          }
         }
       }
+      
+      previousCityCount = newCount
     },
     { immediate: true }
   )
 
   watch(
-    () => checkinStore.checkins.length,
-    (newCount) => {
-      const userId = getCurrentUserId()
-      if (userId == null) return
-
-      if (memorialPages.value.length === 0) {
-        generateAllMemorialPages()
-      } else {
-        checkForNewCity(previousCheckinCount, newCount)
-      }
-      previousCheckinCount = newCount
-    }
-  )
-
-  watch(
-    () => journalStore.journals.length,
-    (newCount, oldCount) => {
-      const userId = getCurrentUserId()
-      if (userId == null) return
-
-      if (newCount !== oldCount && memorialPages.value.length > 0) {
-        generateAllMemorialPages()
+    currentUserId,
+    (newUserId) => {
+      clearNewlyUnlocked()
+      previousCityCount = 0
+      if (newUserId != null) {
+        previousCityCount = cityIds.value.length
       }
     }
   )
@@ -238,12 +206,15 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
   return {
     memorialPages,
     newlyUnlockedCityId,
+    newlyUnlockedCityName,
+    showUnlockAnimation,
     sortedPages,
-    generateAllMemorialPages,
+    currentUserId,
+    myJournals,
     getMemorialPage,
     ensureMemorialPage,
     clearNewlyUnlocked,
-    getMethodConfig,
-    resetMemorialPages
+    triggerUnlockAnimation,
+    getMethodConfig
   }
 })

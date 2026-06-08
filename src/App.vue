@@ -1,17 +1,34 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useCheckinStore } from '@/stores/checkin'
+import { useJournalStore } from '@/stores/journal'
+import { useCityMemorialStore } from '@/stores/cityMemorial'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const checkinStore = useCheckinStore()
+const journalStore = useJournalStore()
+const cityMemorialStore = useCityMemorialStore()
 
 onMounted(async () => {
   if (authStore.isLoggedIn && !authStore.user) {
     await authStore.fetchCurrentUser()
   }
 })
+
+watch(
+  () => authStore.currentUserId,
+  (newUserId, oldUserId) => {
+    if (newUserId == null && oldUserId != null) {
+      checkinStore.reset()
+      journalStore.reset()
+      cityMemorialStore.clearNewlyUnlocked()
+    }
+  }
+)
 
 const showNav = computed(() => route.name !== 'login' && route.name !== 'register')
 

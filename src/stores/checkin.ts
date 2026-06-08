@@ -42,6 +42,11 @@ export const useCheckinStore = defineStore('checkin', () => {
     }
   }
 
+  function reset() {
+    checkins.value = []
+    total.value = 0
+  }
+
   const cityVisitArchives = computed<CityVisitArchive[]>(() => {
     const cityMap = new Map<number, Checkin[]>()
 
@@ -88,6 +93,7 @@ export const useCheckinStore = defineStore('checkin', () => {
     cityVisitArchives,
     fetchCheckins,
     fetchCities,
-    createCheckin
+    createCheckin,
+    reset
   }
 })
