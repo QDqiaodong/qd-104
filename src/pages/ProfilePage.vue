@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/user'
 import { useCheckinStore } from '@/stores/checkin'
 import { useJournalStore } from '@/stores/journal'
 import { useWishlistStore } from '@/stores/wishlist'
+import { useCityMemorialStore } from '@/stores/cityMemorial'
 import { useMemoryBlindbox } from '@/composables/useMemoryBlindbox'
 import MemoryBlindbox from '@/components/MemoryBlindBox.vue'
 import { generateMilestones, getMilestoneTheaterTitle } from '@/utils/milestones'
@@ -33,6 +34,7 @@ const userStore = useUserStore()
 const checkinStore = useCheckinStore()
 const journalStore = useJournalStore()
 const wishlistStore = useWishlistStore()
+const cityMemorialStore = useCityMemorialStore()
 
 const loading = ref(true)
 const showBlindbox = ref(false)
@@ -147,6 +149,10 @@ function getWishlistSeasonIcon(season?: string) {
     any: '🌈'
   }
   return icons[season || ''] || '✨'
+}
+
+function goToCityMemorial(cityId: number) {
+  router.push(`/city-memorial/${cityId}`)
 }
 </script>
 
@@ -739,7 +745,8 @@ function getWishlistSeasonIcon(season?: string) {
             <div
               v-for="archive in checkinStore.cityVisitArchives"
               :key="archive.cityId"
-              class="card overflow-hidden"
+              class="card overflow-hidden card-hover cursor-pointer"
+              @click="goToCityMemorial(archive.cityId)"
             >
               <div class="flex items-start justify-between mb-4">
                 <div class="flex items-center space-x-3">
@@ -820,8 +827,14 @@ function getWishlistSeasonIcon(season?: string) {
               </div>
 
               <div class="mt-4 pt-4 border-t border-secondary">
-                <div class="text-xs text-text-secondary mb-2">到访记录</div>
-                <div class="space-y-2 max-h-48 overflow-y-auto">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs text-text-secondary">到访记录</div>
+                  <div class="text-xs text-primary font-medium flex items-center space-x-1">
+                    <span>查看纪念页</span>
+                    <span>→</span>
+                  </div>
+                </div>
+                <div class="space-y-2 max-h-36 overflow-y-auto mt-2">
                   <div
                     v-for="checkin in archive.checkins"
                     :key="checkin.id"

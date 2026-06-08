@@ -54,6 +54,12 @@ const router = createRouter({
       component: () => import('@/pages/WishlistPage.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/city-memorial/:id',
+      name: 'city-memorial',
+      component: () => import('@/pages/CityMemorialPage.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

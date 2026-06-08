@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useCheckinStore } from '@/stores/checkin'
+import { useCityMemorialStore } from '@/stores/cityMemorial'
 import CitySearchSelect from '@/components/CitySearchSelect.vue'
 import type { Checkin, TravelMethod, RevisitInfo } from '@/types'
 import {
@@ -17,8 +18,10 @@ import {
 } from '@/utils/revisitDetection'
 
 const route = useRoute()
+const router = useRouter()
 
 const checkinStore = useCheckinStore()
+const cityMemorialStore = useCityMemorialStore()
 
 type ViewMode = 'list' | 'scroll'
 
@@ -33,6 +36,9 @@ const viewMode = ref<ViewMode>('scroll')
 const scrollContainer = ref<HTMLElement | null>(null)
 const currentScrollIndex = ref(0)
 const zoomedCard = ref<number | null>(null)
+const showUnlockModal = ref(false)
+const newlyUnlockedCityName = ref('')
+const newlyUnlockedCityId = ref<number | null>(null)
 
 const travelMethods: { value: TravelMethod; label: string; icon: string; color: string }[] = [
   { value: 'plane', label: '飞机', icon: '✈️', color: 'from-sky-400 to-blue-500' },
@@ -251,12 +257,22 @@ async function handleSubmit() {
   submitting.value = true
 
   try {
+    const previousCityIds = new Set(checkinStore.checkins.map(c => c.cityId))
+    const wasNewCity = !previousCityIds.has(selectedCityId.value)
+
     await checkinStore.createCheckin({
       cityId: selectedCityId.value,
       location: location.value,
       travelTime: travelTime.value,
       travelMethod: travelMethod.value
     })
+
+    if (wasNewCity) {
+      newlyUnlockedCityId.value = selectedCityId.value
+      newlyUnlockedCityName.value = checkinStore.cities.find(c => c.id === selectedCityId.value)?.name || '新城市'
+      showUnlockModal.value = true
+    }
+
     closeForm()
     if (viewMode.value === 'scroll') {
       await checkinStore.fetchCheckins({ sortBy: 'travel_time', sortOrder: 'asc' })
@@ -266,6 +282,19 @@ async function handleSubmit() {
     }
   } finally {
     submitting.value = false
+  }
+}
+
+function closeUnlockModal() {
+  showUnlockModal.value = false
+  newlyUnlockedCityId.value = null
+  newlyUnlockedCityName.value = ''
+}
+
+function goToCityMemorial() {
+  if (newlyUnlockedCityId.value) {
+    closeUnlockModal()
+    router.push(`/city-memorial/${newlyUnlockedCityId.value}`)
   }
 }
 
@@ -1079,6 +1108,53 @@ function closeZoom() {
         </div>
       </div>
     </div>
+
+    <!-- 新城市解锁弹窗 -->
+    <transition name="unlock">
+      <div v-if="showUnlockModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-sm text-center overflow-hidden relative">
+          <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-0 left-0 w-32 h-32 rounded-full bg-gradient-to-br from-primary to-accent blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+            <div class="absolute bottom-0 right-0 w-40 h-40 rounded-full bg-gradient-to-br from-amber-400 to-rose-400 blur-3xl translate-x-1/3 translate-y-1/3"></div>
+          </div>
+          
+          <div class="relative z-10">
+            <div class="text-7xl mb-4 animate-bounce">🎉</div>
+            <h2 class="text-3xl font-serif font-bold text-text-primary mb-2">解锁新城市！</h2>
+            <div class="text-2xl font-bold text-primary mb-1">{{ newlyUnlockedCityName }}</div>
+            <p class="text-text-secondary mb-6">专属纪念页已生成</p>
+            
+            <div class="bg-gradient-to-r from-primary-50 to-accent-50 rounded-2xl p-4 mb-6">
+              <div class="text-sm text-text-secondary mb-2">纪念页包含</div>
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div class="text-2xl mb-1">📅</div>
+                  <div class="text-xs text-text-secondary">到访时间</div>
+                </div>
+                <div>
+                  <div class="text-2xl mb-1">📝</div>
+                  <div class="text-xs text-text-secondary">旅行游记</div>
+                </div>
+                <div>
+                  <div class="text-2xl mb-1">🚀</div>
+                  <div class="text-xs text-text-secondary">出行方式</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="space-y-3">
+              <button @click="goToCityMemorial" class="btn-primary w-full">
+                <span class="mr-2">✨</span>
+                查看纪念页
+              </button>
+              <button @click="closeUnlockModal" class="btn-secondary w-full">
+                稍后再说
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -1104,5 +1180,20 @@ function closeZoom() {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.unlock-enter-active,
+.unlock-leave-active {
+  transition: all 0.4s ease;
+}
+
+.unlock-enter-from,
+.unlock-leave-to {
+  opacity: 0;
+}
+
+.unlock-enter-from > div,
+.unlock-leave-to > div {
+  transform: scale(0.8) translateY(20px);
 }
 </style>

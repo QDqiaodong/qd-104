@@ -304,3 +304,30 @@ export interface WishlistRequest {
   reason?: string
   experience?: string
 }
+
+export interface TravelMethodStat {
+  method: TravelMethod
+  count: number
+  label: string
+  icon: string
+}
+
+export interface CityMemorialPage {
+  cityId: number
+  cityName: string
+  cityProvince: string
+  cityDescription?: string
+  firstVisit: string
+  lastVisit: string
+  visitCount: number
+  totalDays: number
+  journals: Journal[]
+  journalCount: number
+  representativePhotos: string[]
+  travelMethods: TravelMethodStat[]
+  primaryTravelMethod?: TravelMethod
+  locations: string[]
+  checkins: Checkin[]
+  createTime: string
+  isNewlyUnlocked?: boolean
+}
