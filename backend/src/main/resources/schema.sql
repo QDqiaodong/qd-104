@@ -53,3 +53,16 @@ CREATE TABLE IF NOT EXISTS collection (
     FOREIGN KEY (user_id) REFERENCES user(id),
     FOREIGN KEY (journal_id) REFERENCES journal(id)
 );
+
+-- 旅行愿望单表
+CREATE TABLE IF NOT EXISTS wishlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    city_id INTEGER NOT NULL,
+    expected_season VARCHAR(20),
+    reason TEXT,
+    experience TEXT,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (city_id) REFERENCES city(id)
+);

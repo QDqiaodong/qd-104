@@ -172,6 +172,7 @@ export interface UserProfile {
   journalCount: number
   checkinCount: number
   collectCount: number
+  wishlistCount: number
   cities: City[]
 }
 
@@ -281,4 +282,25 @@ export interface ApiResponse<T = any> {
   code: number
   message: string
   data: T
+}
+
+// 旅行愿望单
+export interface WishlistItem {
+  id: number
+  userId: number
+  cityId: number
+  cityName: string
+  cityProvince: string
+  cityDescription?: string
+  expectedSeason?: string
+  reason?: string
+  experience?: string
+  createTime: string
+}
+
+export interface WishlistRequest {
+  cityId: number
+  expectedSeason?: string
+  reason?: string
+  experience?: string
 }

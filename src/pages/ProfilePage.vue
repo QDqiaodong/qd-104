@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { useCheckinStore } from '@/stores/checkin'
 import { useJournalStore } from '@/stores/journal'
+import { useWishlistStore } from '@/stores/wishlist'
 import { useMemoryBlindbox } from '@/composables/useMemoryBlindbox'
 import MemoryBlindbox from '@/components/MemoryBlindBox.vue'
 import { generateMilestones, getMilestoneTheaterTitle } from '@/utils/milestones'
@@ -31,9 +32,11 @@ const authStore = useAuthStore()
 const userStore = useUserStore()
 const checkinStore = useCheckinStore()
 const journalStore = useJournalStore()
+const wishlistStore = useWishlistStore()
 
 const loading = ref(true)
 const showBlindbox = ref(false)
+const activeCityTab = ref<'visited' | 'wishlist'>('visited')
 
 const milestones = computed<MilestoneItem[]>(() => {
   return generateMilestones(checkinStore.checkins, journalStore.journals)
@@ -80,7 +83,8 @@ onMounted(async () => {
       userStore.fetchProfile(),
       checkinStore.fetchCities(),
       checkinStore.fetchCheckins(),
-      journalStore.fetchJournals({ page: 1, pageSize: 100 })
+      journalStore.fetchJournals({ page: 1, pageSize: 100 }),
+      wishlistStore.fetchWishlist()
     ])
   } finally {
     loading.value = false
@@ -122,6 +126,28 @@ function handleDraw() {
 function closeBlindbox() {
   showBlindbox.value = false
 }
+
+function getWishlistSeasonLabel(season?: string) {
+  const seasons: { [key: string]: string } = {
+    spring: '春季',
+    summer: '夏季',
+    autumn: '秋季',
+    winter: '冬季',
+    any: '四季皆宜'
+  }
+  return seasons[season || ''] || '未设定'
+}
+
+function getWishlistSeasonIcon(season?: string) {
+  const icons: { [key: string]: string } = {
+    spring: '🌸',
+    summer: '☀️',
+    autumn: '🍂',
+    winter: '❄️',
+    any: '🌈'
+  }
+  return icons[season || ''] || '✨'
+}
 </script>
 
 <template>
@@ -149,14 +175,14 @@ function closeBlindbox() {
       </div>
 
       <!-- 统计卡片 -->
-      <div v-if="loading" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div v-for="i in 4" :key="i" class="card animate-pulse">
+      <div v-if="loading" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div v-for="i in 5" :key="i" class="card animate-pulse">
           <div class="h-12 bg-secondary rounded mb-2"></div>
           <div class="h-4 bg-secondary rounded w-1/2"></div>
         </div>
       </div>
 
-      <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div v-else class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         <div class="card text-center">
           <div class="text-4xl font-bold text-primary mb-2">{{ userStore.profile?.cityCount || 0 }}</div>
           <div class="text-text-secondary">打卡城市</div>
@@ -172,6 +198,10 @@ function closeBlindbox() {
         <div class="card text-center">
           <div class="text-4xl font-bold text-accent mb-2">{{ userStore.profile?.collectCount || 0 }}</div>
           <div class="text-text-secondary">收藏游记</div>
+        </div>
+        <div class="card text-center">
+          <div class="text-4xl font-bold text-amber-500 mb-2">{{ wishlistStore.wishlist.length }}</div>
+          <div class="text-text-secondary">愿望城市</div>
         </div>
       </div>
 
@@ -656,128 +686,239 @@ function closeBlindbox() {
         </div>
       </section>
 
-      <!-- 城市到访档案 -->
+      <!-- 人生旅行清单 -->
       <section class="mb-8">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="section-title mb-0">城市到访档案</h2>
-          <router-link to="/checkin" class="link text-sm">查看全部</router-link>
-        </div>
-
-        <div v-if="loading" class="space-y-4">
-          <div v-for="i in 3" :key="i" class="card animate-pulse">
-            <div class="h-6 bg-secondary rounded w-1/3 mb-3"></div>
-            <div class="h-4 bg-secondary rounded w-1/2 mb-2"></div>
-            <div class="h-4 bg-secondary rounded w-2/3"></div>
+          <h2 class="section-title mb-0">人生旅行清单</h2>
+          <div class="flex items-center space-x-1 bg-warm-card rounded-xl p-1">
+            <button
+              @click="activeCityTab = 'visited'"
+              :class="[
+                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300',
+                activeCityTab === 'visited'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'text-text-secondary hover:text-text-primary'
+              ]"
+            >
+              <span class="mr-1">📍</span>
+              已打卡 ({{ checkinStore.cityVisitArchives.length }})
+            </button>
+            <button
+              @click="activeCityTab = 'wishlist'"
+              :class="[
+                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300',
+                activeCityTab === 'wishlist'
+                  ? 'bg-amber-500 text-white shadow-md'
+                  : 'text-text-secondary hover:text-text-primary'
+              ]"
+            >
+              <span class="mr-1">🌟</span>
+              愿望单 ({{ wishlistStore.wishlist.length }})
+            </button>
           </div>
         </div>
 
-        <div v-else-if="checkinStore.cityVisitArchives.length === 0" class="card text-center py-8">
-          <div class="text-5xl mb-4">🌍</div>
-          <h3 class="text-lg font-medium text-text-primary mb-2">还没有打卡记录</h3>
-          <p class="text-text-secondary mb-4">去打卡你的第一个城市吧</p>
-          <router-link to="/checkin" class="btn-primary">开始打卡</router-link>
+        <!-- 已打卡城市 -->
+        <div v-if="activeCityTab === 'visited'">
+          <div v-if="loading" class="space-y-4">
+            <div v-for="i in 3" :key="i" class="card animate-pulse">
+              <div class="h-6 bg-secondary rounded w-1/3 mb-3"></div>
+              <div class="h-4 bg-secondary rounded w-1/2 mb-2"></div>
+              <div class="h-4 bg-secondary rounded w-2/3"></div>
+            </div>
+          </div>
+
+          <div v-else-if="checkinStore.cityVisitArchives.length === 0" class="card text-center py-8">
+            <div class="text-5xl mb-4">🌍</div>
+            <h3 class="text-lg font-medium text-text-primary mb-2">还没有打卡记录</h3>
+            <p class="text-text-secondary mb-4">去打卡你的第一个城市吧</p>
+            <router-link to="/checkin" class="btn-primary">开始打卡</router-link>
+          </div>
+
+          <div v-else class="space-y-4">
+            <div
+              v-for="archive in checkinStore.cityVisitArchives"
+              :key="archive.cityId"
+              class="card overflow-hidden"
+            >
+              <div class="flex items-start justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md">
+                    <span class="text-2xl">📍</span>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-bold text-text-primary">{{ archive.cityName }}</h3>
+                    <p class="text-sm text-text-secondary">
+                      累计到访 <span class="text-primary font-bold">{{ archive.visitCount }}</span> 次
+                    </p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="badge badge-primary">
+                    第 {{ archive.visitCount }} 次到访
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-secondary/50 rounded-lg p-3">
+                  <div class="text-xs text-text-secondary mb-1">首次到达</div>
+                  <div class="text-sm font-medium text-text-primary">
+                    {{ formatDate(archive.firstVisit) }}
+                  </div>
+                </div>
+                <div class="bg-secondary/50 rounded-lg p-3">
+                  <div class="text-xs text-text-secondary mb-1">最近一次</div>
+                  <div class="text-sm font-medium text-text-primary">
+                    {{ formatDate(archive.lastVisit) }}
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="archive.locations.length > 0">
+                <div class="text-xs text-text-secondary mb-2">路线记忆关键词</div>
+                <div class="flex flex-wrap gap-2 mb-4">
+                  <span
+                    v-for="(memory, idx) in archive.keywordSummary?.routeMemory"
+                    :key="idx"
+                    class="px-2.5 py-1 text-xs rounded-full bg-gradient-to-r from-primary/10 to-accent/10 text-primary font-medium"
+                  >
+                    {{ memory }}
+                  </span>
+                </div>
+              </div>
+
+              <div v-if="archive.keywordSummary?.topKeywords && archive.keywordSummary.topKeywords.length > 0">
+                <div class="text-xs text-text-secondary mb-2">高频地点词</div>
+                <div class="flex flex-wrap gap-2 mb-4">
+                  <span
+                    v-for="(kw, idx) in archive.keywordSummary.topKeywords.slice(0, 6)"
+                    :key="kw.word"
+                    class="px-2.5 py-1 text-xs rounded-full bg-secondary text-text-primary"
+                    :class="{
+                      'text-sm font-medium': idx === 0,
+                      'text-sm': idx === 1,
+                      'text-xs': idx >= 2
+                    }"
+                  >
+                    {{ kw.word }}
+                  </span>
+                </div>
+              </div>
+
+              <div v-if="archive.locations.length > 0">
+                <div class="text-xs text-text-secondary mb-2">停留地点</div>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    v-for="(location, idx) in archive.locations"
+                    :key="idx"
+                    class="px-2.5 py-1 text-xs rounded-full bg-primary-50 text-primary"
+                  >
+                    {{ location }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-secondary">
+                <div class="text-xs text-text-secondary mb-2">到访记录</div>
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                  <div
+                    v-for="checkin in archive.checkins"
+                    :key="checkin.id"
+                    class="flex items-center justify-between text-sm py-1"
+                  >
+                    <div class="flex items-center space-x-2">
+                      <div class="w-2 h-2 rounded-full bg-accent"></div>
+                      <span class="text-text-primary">{{ checkin.location || '未命名地点' }}</span>
+                    </div>
+                    <span class="text-text-secondary text-xs">{{ formatDate(checkin.travelTime) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div v-else class="space-y-4">
-          <div
-            v-for="archive in checkinStore.cityVisitArchives"
-            :key="archive.cityId"
-            class="card overflow-hidden"
-          >
-            <div class="flex items-start justify-between mb-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md">
-                  <span class="text-2xl">📍</span>
-                </div>
-                <div>
-                  <h3 class="text-lg font-bold text-text-primary">{{ archive.cityName }}</h3>
-                  <p class="text-sm text-text-secondary">
-                    累计到访 <span class="text-primary font-bold">{{ archive.visitCount }}</span> 次
-                  </p>
-                </div>
-              </div>
-              <div class="text-right">
-                <div class="badge badge-primary">
-                  第 {{ archive.visitCount }} 次到访
-                </div>
-              </div>
+        <!-- 愿望单城市 -->
+        <div v-if="activeCityTab === 'wishlist'">
+          <div v-if="loading" class="space-y-4">
+            <div v-for="i in 3" :key="i" class="card animate-pulse">
+              <div class="h-6 bg-secondary rounded w-1/3 mb-3"></div>
+              <div class="h-4 bg-secondary rounded w-1/2 mb-2"></div>
+              <div class="h-4 bg-secondary rounded w-2/3"></div>
             </div>
+          </div>
 
-            <div class="grid grid-cols-2 gap-4 mb-4">
-              <div class="bg-secondary/50 rounded-lg p-3">
-                <div class="text-xs text-text-secondary mb-1">首次到达</div>
-                <div class="text-sm font-medium text-text-primary">
-                  {{ formatDate(archive.firstVisit) }}
-                </div>
-              </div>
-              <div class="bg-secondary/50 rounded-lg p-3">
-                <div class="text-xs text-text-secondary mb-1">最近一次</div>
-                <div class="text-sm font-medium text-text-primary">
-                  {{ formatDate(archive.lastVisit) }}
-                </div>
-              </div>
+          <div v-else-if="wishlistStore.wishlist.length === 0" class="card text-center py-10">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-rose-100 flex items-center justify-center">
+              <span class="text-4xl">🌟</span>
             </div>
+            <h3 class="text-lg font-medium text-text-primary mb-2">愿望单还是空的</h3>
+            <p class="text-text-secondary mb-6 max-w-md mx-auto text-sm">
+              每一个想去的城市都是一颗星星，把它们收集起来，总有一天会变成你脚下的路
+            </p>
+            <router-link to="/wishlist" class="btn-primary">添加第一个愿望</router-link>
+          </div>
 
-            <div v-if="archive.locations.length > 0">
-              <div class="text-xs text-text-secondary mb-2">路线记忆关键词</div>
-              <div class="flex flex-wrap gap-2 mb-4">
-                <span
-                  v-for="(memory, idx) in archive.keywordSummary?.routeMemory"
-                  :key="idx"
-                  class="px-2.5 py-1 text-xs rounded-full bg-gradient-to-r from-primary/10 to-accent/10 text-primary font-medium"
-                >
-                  {{ memory }}
-                </span>
-              </div>
-            </div>
-
-            <div v-if="archive.keywordSummary?.topKeywords && archive.keywordSummary.topKeywords.length > 0">
-              <div class="text-xs text-text-secondary mb-2">高频地点词</div>
-              <div class="flex flex-wrap gap-2 mb-4">
-                <span
-                  v-for="(kw, idx) in archive.keywordSummary.topKeywords.slice(0, 6)"
-                  :key="kw.word"
-                  class="px-2.5 py-1 text-xs rounded-full bg-secondary text-text-primary"
-                  :class="{
-                    'text-sm font-medium': idx === 0,
-                    'text-sm': idx === 1,
-                    'text-xs': idx >= 2
-                  }"
-                >
-                  {{ kw.word }}
-                </span>
-              </div>
-            </div>
-
-            <div v-if="archive.locations.length > 0">
-              <div class="text-xs text-text-secondary mb-2">停留地点</div>
-              <div class="flex flex-wrap gap-2">
-                <span
-                  v-for="(location, idx) in archive.locations"
-                  :key="idx"
-                  class="px-2.5 py-1 text-xs rounded-full bg-primary-50 text-primary"
-                >
-                  {{ location }}
-                </span>
-              </div>
-            </div>
-
-            <div class="mt-4 pt-4 border-t border-secondary">
-              <div class="text-xs text-text-secondary mb-2">到访记录</div>
-              <div class="space-y-2 max-h-48 overflow-y-auto">
-                <div
-                  v-for="checkin in archive.checkins"
-                  :key="checkin.id"
-                  class="flex items-center justify-between text-sm py-1"
-                >
-                  <div class="flex items-center space-x-2">
-                    <div class="w-2 h-2 rounded-full bg-accent"></div>
-                    <span class="text-text-primary">{{ checkin.location || '未命名地点' }}</span>
+          <div v-else class="space-y-4">
+            <div
+              v-for="item in wishlistStore.wishlist"
+              :key="item.id"
+              class="card overflow-hidden card-hover"
+            >
+              <div class="flex items-start justify-between">
+                <div class="flex items-start space-x-3 flex-1">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center flex-shrink-0 shadow-md">
+                    <span class="text-2xl">{{ getWishlistSeasonIcon(item.expectedSeason) }}</span>
                   </div>
-                  <span class="text-text-secondary text-xs">{{ formatDate(checkin.travelTime) }}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-2 mb-1">
+                      <h3 class="text-lg font-bold text-text-primary">
+                        {{ item.cityName }}
+                      </h3>
+                      <span class="badge bg-secondary text-text-secondary text-xs">
+                        {{ item.cityProvince }}
+                      </span>
+                      <span class="badge bg-amber-50 text-amber-600 text-xs">
+                        {{ getWishlistSeasonIcon(item.expectedSeason) }} {{ getWishlistSeasonLabel(item.expectedSeason) }}
+                      </span>
+                    </div>
+
+                    <div v-if="item.cityDescription" class="text-sm text-text-secondary mb-3 line-clamp-1">
+                      {{ item.cityDescription }}
+                    </div>
+
+                    <div v-if="item.reason" class="mb-3">
+                      <div class="text-xs text-text-muted mb-1 flex items-center space-x-1">
+                        <span>💭</span>
+                        <span>出发理由</span>
+                      </div>
+                      <p class="text-sm text-text-primary bg-secondary/50 rounded-lg px-3 py-2">
+                        {{ item.reason }}
+                      </p>
+                    </div>
+
+                    <div v-if="item.experience">
+                      <div class="text-xs text-text-muted mb-1 flex items-center space-x-1">
+                        <span>🎯</span>
+                        <span>想体验的内容</span>
+                      </div>
+                      <p class="text-sm text-text-primary bg-primary-50/50 rounded-lg px-3 py-2">
+                        {{ item.experience }}
+                      </p>
+                    </div>
+
+                    <div class="text-xs text-text-muted mt-3">
+                      添加于 {{ formatDate(item.createTime) }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <router-link to="/wishlist" class="block text-center py-3 text-primary text-sm font-medium hover:underline">
+              查看全部愿望 →
+            </router-link>
           </div>
         </div>
       </section>
@@ -811,7 +952,7 @@ function closeBlindbox() {
       <!-- 快捷操作 -->
       <section>
         <h2 class="section-title">快捷操作</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <router-link to="/publish" class="card card-hover flex items-center space-x-4">
             <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center">
               <span class="text-2xl">✏️</span>
@@ -829,6 +970,16 @@ function closeBlindbox() {
             <div>
               <h3 class="font-medium text-text-primary">打卡记录</h3>
               <p class="text-sm text-text-secondary">记录你的足迹</p>
+            </div>
+          </router-link>
+
+          <router-link to="/wishlist" class="card card-hover flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
+              <span class="text-2xl">🌟</span>
+            </div>
+            <div>
+              <h3 class="font-medium text-text-primary">旅行愿望单</h3>
+              <p class="text-sm text-text-secondary">规划未来的旅行</p>
             </div>
           </router-link>
 
@@ -1067,5 +1218,12 @@ function closeBlindbox() {
   .milestone-icon span {
     font-size: 1.25rem;
   }
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

@@ -16,5 +16,6 @@ public class UserProfileResponse {
     private Integer journalCount;
     private Integer checkinCount;
     private Integer collectCount;
+    private Integer wishlistCount;
     private List<City> cities;
 }

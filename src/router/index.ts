@@ -48,6 +48,12 @@ const router = createRouter({
       component: () => import('@/pages/CollectionPage.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/wishlist',
+      name: 'wishlist',
+      component: () => import('@/pages/WishlistPage.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

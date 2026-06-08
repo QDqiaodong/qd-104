@@ -31,6 +31,9 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private CityRepository cityRepository;
 
+    @Autowired
+    private WishlistRepository wishlistRepository;
+
     @Override
     public UserProfileResponse getUserProfile(Long userId) {
         User user = userRepository.selectById(userId);
@@ -60,6 +63,11 @@ public class UserServiceImpl implements UserService {
         collectionWrapper.eq("user_id", userId);
         Long collectCount = collectionRepository.selectCount(collectionWrapper);
 
+        // 获取愿望单数量
+        QueryWrapper<Wishlist> wishlistWrapper = new QueryWrapper<>();
+        wishlistWrapper.eq("user_id", userId);
+        Long wishlistCount = wishlistRepository.selectCount(wishlistWrapper);
+
         return new UserProfileResponse(
                 userId,
                 user.getNickname(),
@@ -67,6 +75,7 @@ public class UserServiceImpl implements UserService {
                 journalCount.intValue(),
                 checkins.size(),
                 collectCount.intValue(),
+                wishlistCount.intValue(),
                 cities
         );
     }
