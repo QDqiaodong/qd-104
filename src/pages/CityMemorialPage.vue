@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCityMemorialStore } from '@/stores/cityMemorial'
 import { useCheckinStore } from '@/stores/checkin'
 import { useJournalStore } from '@/stores/journal'
 import { useAuthStore } from '@/stores/auth'
-import type { CityMemorialPage, TravelMethodStat } from '@/types'
+import type { CityMemorialPage as CityMemorialPageType, TravelMethodStat } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,20 +16,26 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const cityId = computed(() => Number(route.params.id))
-const memorialPage = ref<CityMemorialPage | null>(null)
+
+const memorialPage = computed<CityMemorialPageType | null>(() => {
+  return cityMemorialStore.getMemorialPage(cityId.value) || null
+})
 
 onMounted(async () => {
   try {
+    if (authStore.isLoggedIn && !authStore.user) {
+      await authStore.fetchCurrentUser()
+    }
+
     await Promise.all([
       checkinStore.fetchCities(),
       checkinStore.fetchCheckins(),
       journalStore.fetchJournals({ page: 1, pageSize: 100 })
     ])
     
-    const page = cityMemorialStore.ensureMemorialPage(cityId.value)
-    memorialPage.value = page
+    cityMemorialStore.ensureMemorialPage(cityId.value)
     
-    if (page?.isNewlyUnlocked) {
+    if (memorialPage.value?.isNewlyUnlocked) {
       setTimeout(() => {
         cityMemorialStore.clearNewlyUnlocked()
       }, 3000)
@@ -38,6 +44,15 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+watch(
+  () => authStore.user?.id,
+  () => {
+    if (authStore.user?.id != null && checkinStore.checkins.length > 0) {
+      cityMemorialStore.ensureMemorialPage(cityId.value)
+    }
+  }
+)
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr)

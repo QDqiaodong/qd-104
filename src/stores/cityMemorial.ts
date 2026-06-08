@@ -16,6 +16,7 @@ const TRAVEL_METHOD_CONFIG: { value: TravelMethod; label: string; icon: string }
 export const useCityMemorialStore = defineStore('cityMemorial', () => {
   const memorialPages = ref<CityMemorialPage[]>([])
   const newlyUnlockedCityId = ref<number | null>(null)
+  const currentUserId = ref<number | null>(null)
 
   const checkinStore = useCheckinStore()
   const journalStore = useJournalStore()
@@ -56,7 +57,7 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
     return stats
   }
 
-  function getRepresentativePhotos(journals: Journal[], checkins: Checkin[]): string[] {
+  function getRepresentativePhotos(journals: Journal[]): string[] {
     const photos: string[] = []
 
     for (const journal of journals) {
@@ -72,6 +73,14 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
     return checkinStore.cities.find(c => c.id === cityId)
   }
 
+  function getCurrentUserId(): number | null {
+    return authStore.user?.id || null
+  }
+
+  function isCurrentUserLoaded(): boolean {
+    return authStore.user !== null && authStore.user.id !== undefined
+  }
+
   function generateMemorialPage(cityId: number, isNew: boolean = false): CityMemorialPage | null {
     const cityCheckins = checkinStore.checkins.filter(c => c.cityId === cityId)
     if (cityCheckins.length === 0) return null
@@ -81,16 +90,17 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
       (a, b) => new Date(a.travelTime).getTime() - new Date(b.travelTime).getTime()
     )
 
-    const myJournals = journalStore.journals.filter(
-      j => j.authorId === authStore.user?.id && j.cityId === cityId
-    )
+    const userId = getCurrentUserId()
+    const myJournals = userId
+      ? journalStore.journals.filter(j => j.authorId === userId && j.cityId === cityId)
+      : []
 
     const firstVisit = sortedCheckins[0].travelTime
     const lastVisit = sortedCheckins[sortedCheckins.length - 1].travelTime
     const locations = [...new Set(sortedCheckins.map(c => c.location).filter(Boolean))]
     const travelMethods = getTravelMethodStats(sortedCheckins)
     const primaryTravelMethod = travelMethods.length > 0 ? travelMethods[0].method : undefined
-    const representativePhotos = getRepresentativePhotos(myJournals, sortedCheckins)
+    const representativePhotos = getRepresentativePhotos(myJournals)
 
     return {
       cityId,
@@ -170,6 +180,13 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
     return page || null
   }
 
+  function resetMemorialPages() {
+    memorialPages.value = []
+    newlyUnlockedCityId.value = null
+    previousCheckinCount = 0
+    currentUserId.value = getCurrentUserId()
+  }
+
   const sortedPages = computed(() => {
     return [...memorialPages.value].sort(
       (a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
@@ -179,22 +196,40 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
   let previousCheckinCount = 0
 
   watch(
+    () => authStore.user?.id,
+    (newUserId, oldUserId) => {
+      if (newUserId !== oldUserId) {
+        resetMemorialPages()
+        if (newUserId != null && checkinStore.checkins.length > 0) {
+          generateAllMemorialPages()
+        }
+      }
+    },
+    { immediate: true }
+  )
+
+  watch(
     () => checkinStore.checkins.length,
     (newCount) => {
+      const userId = getCurrentUserId()
+      if (userId == null) return
+
       if (memorialPages.value.length === 0) {
         generateAllMemorialPages()
       } else {
         checkForNewCity(previousCheckinCount, newCount)
       }
       previousCheckinCount = newCount
-    },
-    { immediate: true }
+    }
   )
 
   watch(
     () => journalStore.journals.length,
-    () => {
-      if (memorialPages.value.length > 0) {
+    (newCount, oldCount) => {
+      const userId = getCurrentUserId()
+      if (userId == null) return
+
+      if (newCount !== oldCount && memorialPages.value.length > 0) {
         generateAllMemorialPages()
       }
     }
@@ -208,6 +243,7 @@ export const useCityMemorialStore = defineStore('cityMemorial', () => {
     getMemorialPage,
     ensureMemorialPage,
     clearNewlyUnlocked,
-    getMethodConfig
+    getMethodConfig,
+    resetMemorialPages
   }
 })

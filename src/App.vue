@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
+onMounted(async () => {
+  if (authStore.isLoggedIn && !authStore.user) {
+    await authStore.fetchCurrentUser()
+  }
+})
 
 const showNav = computed(() => route.name !== 'login' && route.name !== 'register')
 
